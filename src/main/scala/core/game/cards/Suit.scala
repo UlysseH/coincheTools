@@ -6,3 +6,4 @@ enum Suit(s: String):
   case Diamonds extends Suit("d")
   case Hearts extends Suit("h")
   case Spades extends Suit("s")
+  case None extends Suit("NONE")
