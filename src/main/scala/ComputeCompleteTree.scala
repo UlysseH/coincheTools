@@ -21,16 +21,16 @@ object ComputeCompleteTree extends IOApp {
         "p4" -> Hand(draw.h4.cards.take(cardsTrunc))
       )
 
-      game = Game(("p1", "p2", "p3", "p4"), Suit.Spades, handMap)
+      game = Game.init(
+        ("p1", "p2", "p3", "p4"),
+        Suit.Spades,
+        shuffledDeck,
+        ThreeThreeTwo
+      )
 
       tree = roundTree
         .GameTreeNode(
           game,
-          "p1",
-          Suit.None,
-          Suit.Spades,
-          handMap,
-          List.empty[(Card, String)],
           List.empty[GameTreeNode]
         )
         .compute

@@ -5,51 +5,32 @@ import core.game.cards.*
 
 case class GameTreeNode(
     game: Game,
-    currentPlayer: String,
-    currentSuit: Suit,
-    trumpSuit: Suit,
-    handMap: Map[String, Hand],
     // Current winning player at head
-    cardsPlayed: List[(Card, String)],
     children: List[GameTreeNode],
     listOfPlayedCard: List[Card] = List.empty[Card],
     isLeaf: Boolean = false
 ) {
-  val playableCards: List[Card] = PlayableCards(
-    game,
-    currentPlayer,
-    handMap(currentPlayer).cards,
-    cardsPlayed,
-    trumpSuit,
-    currentSuit
-  ).cards
+
+  val playableCards: List[Card] = game.playableCards
 
   private def takesLead(card: Card): Boolean =
-    if (card.suit.==(trumpSuit))
-      cardsPlayed
-        .filter(_._1.suit.==(trumpSuit))
+    if (card.suit.==(game.trumpSuit))
+      game.cardsInPlay
+        .filter(_._1.suit.==(game.trumpSuit))
         .map(_._1.height.getTrumpRank)
         .forall(x => card.height.getTrumpRank > x)
     else {
-      if (cardsPlayed.exists(_._1.suit.==(trumpSuit))) false
+      if (game.cardsInPlay.exists(_._1.suit.==(game.trumpSuit))) false
       else
-        cardsPlayed
-          .filter(_._1.suit.==(currentSuit))
+        game.cardsInPlay
+          .filter(_._1.suit.==(game.currentSuit))
           .map(_._1.height.getBaseRank)
           .forall(x => card.height.getBaseRank > x)
     }
 
   def generateChildren: List[GameTreeNode] = playableCards.map(card =>
     GameTreeNode(
-      game,
-      game.nextPlayer(currentPlayer),
-      if (currentSuit.==(Suit.None)) card.suit else currentSuit,
-      trumpSuit,
-      handMap.map((s, h) =>
-        if (s == currentPlayer) (s, h.remove(card)) else (s, h)
-      ),
-      if (takesLead(card)) cardsPlayed.prepended((card, currentPlayer))
-      else cardsPlayed.appended((card, currentPlayer)),
+      game.nextStep(card),
       List.empty[GameTreeNode],
       listOfPlayedCard = listOfPlayedCard.appended(card)
     )
@@ -57,10 +38,10 @@ case class GameTreeNode(
 
   def compute: GameTreeNode = {
     // println(listOfPlayedCard.length)
-    cardsPlayed.length match {
+    game.cardsInPlay.length match {
       case 4 =>
-        this.copy(cardsPlayed = List.empty[(Card, String)]).compute
-      case _ if handMap.toList.map(_._2.cards.length).sum == 0 =>
+        this.copy(game.copy(cardsInPlay = List.empty[(Card, String)])).compute
+      case _ if game.handMap.toList.map(_._2.cards.length).sum == 0 =>
         this.copy(isLeaf = true)
       case _ => this.copy(children = generateChildren.map(_.compute))
     }
