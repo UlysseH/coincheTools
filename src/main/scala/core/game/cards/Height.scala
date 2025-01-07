@@ -21,3 +21,15 @@ enum Height(
   case Queen extends Height("Q", 4, 3, 2, 3)
   case King extends Height("K", 5, 4, 3, 4)
   case Ace extends Height("A", 7, 11, 5, 11)
+
+object Height {
+  def fromString(s: String): Height = s match
+    case "7" => Seven
+    case "8" => Eight
+    case "9" => Nine
+    case "T" => Ten
+    case "J" => Jack
+    case "Q" => Queen
+    case "K" => King
+    case "A" => Ace
+}

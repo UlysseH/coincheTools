@@ -1,5 +1,6 @@
 package core.game
 
+import cats.effect.IO
 import core.game.cards.{Card, Deck, DistributePattern, Hand, Suit}
 import core.game.roundTree.Tricks
 
@@ -13,9 +14,32 @@ case class Game(
     handMap: Map[String, Hand],
     cardsInPlay: List[(Card, String)],
     tricksList: List[Tricks],
-    // step: Int,
+    cardsFromBeginning: List[Card],
+    step: Int,
     isComplete: Boolean
 ) {
+  def printInfo: IO[Unit] =
+    IO.println("[info] players/cards") *>
+      IO.println(
+        handMap.toList
+          .map((s, l) =>
+            (
+              s,
+              Hand(
+                l.cards
+                  .sortBy(card =>
+                    if (card.suit == trumpSuit) card.height.getTrumpRank + 100
+                    else card.height.getBaseRank
+                  )
+                  .reverse
+              )
+            )
+          )
+          .map((p, h) =>
+            s"$p : ${h.cards.map(_.getNotation).mkString(",")} (${h.countPoints(Suit.Spades)}pts)"
+          )
+          .mkString("\n")
+      )
 
   /** Playable Cards functionalities
     */
@@ -80,19 +104,51 @@ case class Game(
           )
         )
         this.copy(
-          currentPlayer = nextPlayer(currentPlayer),
+          currentPlayer = newTricks.last.wonBy,
           handMap = newHandMap,
           cardsInPlay = List.empty[(Card, String)],
           newTricks,
+          cardsFromBeginning = cardsFromBeginning.appended(cardPlayed),
+          step = step + 1,
           tricksList.length == 7
         )
       }
       case _ =>
         this.copy(
           currentPlayer = nextPlayer(currentPlayer),
-          handMap = newHandMap
+          handMap = newHandMap,
+          cardsInPlay = cardsInPlay.appended((cardPlayed, currentPlayer)),
+          cardsFromBeginning = cardsFromBeginning.appended(cardPlayed),
+          step = step + 1
         )
   }
+
+  def printTricks: IO[Unit] = IO.println("\n[info] Tricks") *> IO.println(
+    tricksList.map(_.print).mkString("\n")
+  )
+
+  /** Points
+    */
+  def computePoints: Map[String, Int] = {
+    val pointsA = tricksList
+      .filter(t => (t.wonBy == players._1) || (t.wonBy == players._3))
+      .map(_.points)
+      .sum
+    val pointsB = tricksList
+      .filter(t => (t.wonBy == players._2) || (t.wonBy == players._4))
+      .map(_.points)
+      .sum
+    Map(
+      players._1 -> pointsA,
+      players._2 -> pointsB,
+      players._3 -> pointsA,
+      players._4 -> pointsB
+    )
+  }
+
+  def printPoints: IO[Unit] = IO.println(
+    s"\n[points] Team 1: ${computePoints(players._1)} | Team 2: ${computePoints(players._2)}"
+  )
 
   /** Players functions
     */
@@ -131,64 +187,50 @@ case class Game(
       generateRandomPlayableCard
     ).generateRandomGameFromHere
 
-  /*def generateRandomGameFromHere = {
-    val (card, rest) = generateRandomPlayableCardWithRest
-
-    val newHandMap = game.handMap.updated(currentPlayer, Hand(rest))
-    val newGame = game.copy(handMap = newHandMap)
-
-    rest match
-      case Nil if playedCard.length == 3 =>
-        RandomGame(
-          tricksList.appended(
-            Tricks.fromCards(
-              playedCard.appended((card, currentPlayer)),
-              game.trumpSuit,
-              true
-            )
-          )
-        )
-      case Nil =>
-        computeRec(
-          newGame,
-          newGame.nextPlayer(currentPlayer),
-          playedCard.appended((card, currentPlayer)),
-          tricksList
-        )
-      case cards if playedCard.length == 3 =>
-        val lastTrick = Tricks.fromCards(
-          playedCard.appended((card, currentPlayer)),
-          game.trumpSuit
-        )
-        computeRec(
-          newGame,
-          lastTrick.wonBy,
-          List.empty[(Card, String)],
-          tricksList.appended(
-            Tricks.fromCards(
-              playedCard.appended((card, currentPlayer)),
-              game.trumpSuit
-            )
-          )
-        )
-      case cards =>
-        computeRec(
-          newGame,
-          newGame.nextPlayer(currentPlayer),
-          playedCard.appended((card, currentPlayer)),
-          tricksList
-        )
-  }*/
-
-  /*def randomOptimizeRec(precision: Int) = {
-    val res = List.fill(precision)(
-      RandomGameGenerator.computeRec(
-        this,
-        players._1,
-        List.empty[(Card, String)]
+  /** Generate a new game with random hand map for players other than current
+    * player
+    */
+  def generateRandomAdjacentHandMapFromHere: Game = {
+    val shuffledRest =
+      Random.shuffle(
+        handMap.toList.filterNot(_._1.==(currentPlayer)).flatMap(_._2.cards)
       )
-    )
-  }*/
+    val numCardMap = handMap.toList
+      .filterNot(_._1.==(currentPlayer))
+      .map((player, l) => (player, l.cards.length))
+      .scanLeft(("", 0, 0))((acc, x) => (x._1, acc._3, acc._3 + x._2))
+      .tail
+    val newHandMap =
+      numCardMap
+        .map((player, x, y) => player -> Hand(shuffledRest.slice(x, y)))
+        .toMap
+        .+(currentPlayer -> handMap(currentPlayer))
+    this.copy(handMap = newHandMap)
+  }
+
+  def randomOptimizeRec(precision: Int): Game =
+    if (isComplete) this
+    else {
+      val res = List.fill(precision)(
+        generateRandomAdjacentHandMapFromHere.generateRandomGameFromHere
+      )
+      val y = res
+        .groupBy(_.cardsFromBeginning(step))
+        .toList
+        .map((c, l) =>
+          (
+            c,
+            l.map(_.computePoints(currentPlayer)).sum / l.length
+          )
+        )
+        .sortBy(_._2)
+        .reverse
+
+      // println(y.mkString("\n"))
+      // println("\n")
+
+      nextStep(y.head._1).randomOptimizeRec(precision)
+    }
 
   def generateAllTricksWithPoints(
       h1: Hand,
@@ -275,6 +317,8 @@ object Game {
       handMap,
       List.empty[(Card, String)],
       List.empty[Tricks],
+      List.empty[Card],
+      0,
       false
     )
   }

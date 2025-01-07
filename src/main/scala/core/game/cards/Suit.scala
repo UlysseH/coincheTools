@@ -7,3 +7,11 @@ enum Suit(s: String):
   case Hearts extends Suit("h")
   case Spades extends Suit("s")
   case None extends Suit("NONE")
+  
+object Suit {
+  def fromString(s: String) = s match
+    case "c" => Clubs
+    case "h" => Hearts
+    case "s" => Spades
+    case "d" => Diamonds
+}
