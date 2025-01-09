@@ -15,6 +15,14 @@ case class Hand(cards: List[Card]) {
       .toList
       .flatMap(_._2.sortBy(_.height.getTrumpRank).map(_.getNotation).reverse)
 
+  def toStringTrumpOrdered(trumpSuit: Suit) = cards
+    .sortBy(card =>
+      if (card.suit == trumpSuit) card.height.getTrumpRank + 100
+      else card.height.getBaseRank
+    )
+    .reverse
+    .map(_.getNotation)
+
   // Plusieures valeurs possibles bien entendu
   def isMisery: Boolean = (cards.map(_.height.getBaseRank).sum < 11)
 

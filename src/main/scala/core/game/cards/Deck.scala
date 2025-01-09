@@ -20,6 +20,16 @@ case class Deck(cards: List[Card]) {
     val split = cards.splitAt(pivot)
     Deck(split._2 ++ split._1)
   }
+
+  def toHandMap: List[Hand] = List(
+    Hand(cards.slice(0, 8)),
+    Hand(cards.slice(8, 16)),
+    Hand(cards.slice(16, 24)),
+    Hand(cards.slice(24, 32))
+  )
+
+  // def take(n)
+
   def distribute(ptn: DistributePattern): Draw = ptn match
     case DistributePattern.ThreeThreeTwo =>
       Draw(

@@ -13,7 +13,7 @@ object Main extends IOApp {
 
       shuffledDeck = Deck.shuffled
 
-      game = Game
+      /*game = Game
         .init(
           ("p1", "p2", "p3", "p4"),
           Suit.None,
@@ -21,32 +21,14 @@ object Main extends IOApp {
           TwoThreeThree
         )
         .copy(trumpSuit = Spades)
-      /*.copy(
-          handMap = Map(
-            "p1" -> Hand(
-              List("7s", "8d", "As", "Ad", "Qh", "Td", "Js", "Ts")
-                .map(Card.fromLitteral)
-            ),
-            "p2" -> Hand(
-              List("8h", "Qd", "Jh", "Qc", "9s", "9c", "Tc", "9h")
-                .map(Card.fromLitteral)
-            ),
-            "p3" -> Hand(
-              List("7d", "Kd", "Kh", "8c", "Jc", "Ks", "8s", "Qs")
-                .map(Card.fromLitteral)
-            ),
-            "p4" -> Hand(
-              List("Jd", "9d", "7h", "Kc", "Th", "Ac", "7c", "Ah")
-                .map(Card.fromLitteral)
-            )
-          )
-        )*/
 
       optGame = game.randomOptimizeRec(1000)
 
       _ <- game.printInfo
       _ <- optGame.printTricks
-      _ <- optGame.printPoints
+      _ <- optGame.printPoints*/
+
+      // _ = Game.computeGameForEachTrumpSuit()
 
       /*optGames = List(
         game.copy(trumpSuit = Spades).randomOptimizeRec(1000),
@@ -65,6 +47,30 @@ object Main extends IOApp {
       )
 
       _ <- print.sequence*/
+
+      hands = shuffledDeck.toHandMap
+
+      _ <- IO.println(
+        hands.map(_.getNotationBaseOrder.mkString(",")).mkString("\n")
+      )
+
+      /*handMap = Map(
+        "p1" -> hands(0),
+        "p2" -> hands(1),
+        "p3" -> hands(2),
+        "p4" -> hands(3)
+      )
+
+      res = Game
+        .computeGameForEachTrumpSuit(
+          ("p1", "p2", "p3", "p4"),
+          handMap,
+          1000
+        )
+        .toList
+        .map((a, b) => s"$a: $b")
+
+      _ <- IO.println(res.mkString("\n"))*/
 
       end <- IO(System.currentTimeMillis())
       _ <- IO.println(s"[computed in] ${end - start}ms")

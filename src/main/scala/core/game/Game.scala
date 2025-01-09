@@ -1,8 +1,10 @@
 package core.game
 
 import cats.effect.IO
+import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
 import core.game.cards.{Card, Deck, DistributePattern, Hand, Suit}
 import core.game.roundTree.Tricks
+import io.circe.syntax._
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -18,28 +20,9 @@ case class Game(
     step: Int,
     isComplete: Boolean
 ) {
-  def printInfo: IO[Unit] =
-    IO.println("[info] players/cards") *>
-      IO.println(
-        handMap.toList
-          .map((s, l) =>
-            (
-              s,
-              Hand(
-                l.cards
-                  .sortBy(card =>
-                    if (card.suit == trumpSuit) card.height.getTrumpRank + 100
-                    else card.height.getBaseRank
-                  )
-                  .reverse
-              )
-            )
-          )
-          .map((p, h) =>
-            s"$p : ${h.cards.map(_.getNotation).mkString(",")} (${h.countPoints(Suit.Spades)}pts)"
-          )
-          .mkString("\n")
-      )
+  def printInfo: IO[Unit] = Game.printInfo(handMap, trumpSuit)
+
+  // def
 
   /** Playable Cards functionalities
     */
@@ -296,6 +279,31 @@ case class Game(
 }
 
 object Game {
+  case class OptimizedGameResult(
+      players: (String, String, String, String),
+      handMap: Map[String, Hand],
+      trumpSuit: Suit,
+      pointsA: Int,
+      pointsB: Int
+  ) {
+    def toMap: Map[String, String] = Map(
+      players._1 -> handMap(players._1)
+        .toStringTrumpOrdered(trumpSuit)
+        .mkString(","),
+      players._2 -> handMap(players._2)
+        .toStringTrumpOrdered(trumpSuit)
+        .mkString(","),
+      players._3 -> handMap(players._3)
+        .toStringTrumpOrdered(trumpSuit)
+        .mkString(","),
+      players._4 -> handMap(players._4)
+        .toStringTrumpOrdered(trumpSuit)
+        .mkString(","),
+      "trumpSuit" -> trumpSuit.getLiteral,
+      "pointsA" -> pointsA.toString,
+      "pointsB" -> pointsB.toString
+    )
+  }
   def init(
       players: (String, String, String, String),
       trumpSuit: Suit,
@@ -322,4 +330,62 @@ object Game {
       false
     )
   }
+
+  def printInfo(handMap: Map[String, Hand], trumpSuit: Suit): IO[Unit] =
+    IO.println("[info] players/cards") *>
+      IO.println(
+        handMap.toList
+          .map((s, l) =>
+            (
+              s,
+              Hand(
+                l.cards
+                  .sortBy(card =>
+                    if (card.suit == trumpSuit) card.height.getTrumpRank + 100
+                    else card.height.getBaseRank
+                  )
+                  .reverse
+              )
+            )
+          )
+          .map((p, h) =>
+            s"$p : ${h.cards.map(_.getNotation).mkString(",")} (${h.countPoints(Suit.Spades)}pts)"
+          )
+          .mkString("\n")
+      )
+
+  def computeGameForEachTrumpSuit(
+      players: (String, String, String, String),
+      handMap: Map[String, Hand],
+      precision: Int
+  ) = {
+    List(Spades, Diamonds, Clubs, Hearts).map(trumpSuit =>
+      val optGame = Game(
+        players,
+        players._1,
+        trumpSuit,
+        handMap,
+        List.empty[(Card, String)],
+        List.empty[Tricks],
+        List.empty[Card],
+        0,
+        false
+      ).randomOptimizeRec(100)
+
+      val points = optGame.computePoints
+      val pointsTeamA = points(players._1)
+      val pointsTeamB = points(players._2)
+
+      val result = OptimizedGameResult(
+        players,
+        handMap,
+        trumpSuit,
+        pointsTeamA,
+        pointsTeamB
+      )
+      result.toMap
+    )
+  }
+
+  // def generate
 }
