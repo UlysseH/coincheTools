@@ -1,12 +1,13 @@
 package core.game.roundTree
 
+import core.game.Player
 import core.game.cards.{Card, Suit}
 
 case class Tricks(
-    wonBy: String,
+    wonBy: Player,
     points: Int,
     cards: List[Card],
-    firstPlayer: String
+    firstPlayer: Player
 ) {
   def print =
     s"[wonBy] $wonBy | [points] $points | ${cards.map(_.getNotation).mkString(",")} | [firstPlayer] $firstPlayer"
@@ -15,7 +16,7 @@ case class Tricks(
 
 object Tricks {
   def fromCards(
-      playedCards: List[(Card, String)],
+      playedCards: List[(Card, Player)],
       trumpSuit: Suit,
       isLast: Boolean = false
   ): Tricks = {

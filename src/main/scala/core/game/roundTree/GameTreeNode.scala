@@ -1,6 +1,6 @@
 package core.game.roundTree
 
-import core.game.Game
+import core.game.{Game, Player}
 import core.game.cards.*
 
 case class GameTreeNode(
@@ -40,8 +40,8 @@ case class GameTreeNode(
     // println(listOfPlayedCard.length)
     game.cardsInPlay.length match {
       case 4 =>
-        this.copy(game.copy(cardsInPlay = List.empty[(Card, String)])).compute
-      case _ if game.handMap.toList.map(_._2.cards.length).sum == 0 =>
+        this.copy(game.copy(cardsInPlay = List.empty[(Card, Player)])).compute
+      case _ if game.handMap.toList.map(_._2.length).sum == 0 =>
         this.copy(isLeaf = true)
       case _ => this.copy(children = generateChildren.map(_.compute))
     }

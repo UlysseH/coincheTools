@@ -1,26 +1,26 @@
 package core.game
 
 import cats.effect.IO
+import core.game.Player._
 import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
-import core.game.cards.{Card, Deck, DistributePattern, Hand, Suit}
+import core.game.cards.{Card, Deck, DistributePattern, Hand, HandMap, Suit}
 import core.game.roundTree.Tricks
-import io.circe.syntax._
+import io.circe.syntax.*
 
 import scala.annotation.tailrec
 import scala.util.Random
 
 case class Game(
-    players: (String, String, String, String),
-    currentPlayer: String,
+    currentPlayer: Player,
     trumpSuit: Suit,
-    handMap: Map[String, Hand],
-    cardsInPlay: List[(Card, String)],
+    handMap: HandMap,
+    cardsInPlay: List[(Card, Player)],
     tricksList: List[Tricks],
     cardsFromBeginning: List[Card],
     step: Int,
     isComplete: Boolean
 ) {
-  def printInfo: IO[Unit] = Game.printInfo(handMap, trumpSuit)
+  def printInfo: IO[Unit] = handMap.printInfo(trumpSuit)
 
   // def
 
@@ -29,12 +29,12 @@ case class Game(
   val currentSuit: Suit =
     cardsInPlay.headOption.map(_._1.suit).getOrElse(Suit.None)
 
-  val playerCards: List[Card] = handMap(currentPlayer).cards
+  val playerCards: List[Card] = handMap.getPlayerCards(currentPlayer)
 
   val playableCards: List[Card] = {
     val partnerIsMaster: Boolean =
       cardsInPlay.headOption.exists((_, player) =>
-        partner(player) == currentPlayer
+        player.partner == currentPlayer
       )
     val playerTrumpCards = playerCards.filter(_.suit.==(trumpSuit))
 
@@ -72,10 +72,8 @@ case class Game(
   }
 
   def nextStep(cardPlayed: Card): Game = {
-    val newHandMap = handMap.updated(
-      currentPlayer,
-      handMap(currentPlayer).remove(cardPlayed)
-    )
+    val _ = handMap
+    val newHandMap = handMap.removeCard(cardPlayed, currentPlayer)
 
     cardsInPlay.length match
       case 3 => {
@@ -89,7 +87,7 @@ case class Game(
         this.copy(
           currentPlayer = newTricks.last.wonBy,
           handMap = newHandMap,
-          cardsInPlay = List.empty[(Card, String)],
+          cardsInPlay = List.empty[(Card, Player)],
           newTricks,
           cardsFromBeginning = cardsFromBeginning.appended(cardPlayed),
           step = step + 1,
@@ -98,7 +96,7 @@ case class Game(
       }
       case _ =>
         this.copy(
-          currentPlayer = nextPlayer(currentPlayer),
+          currentPlayer = currentPlayer.nextPlayer,
           handMap = newHandMap,
           cardsInPlay = cardsInPlay.appended((cardPlayed, currentPlayer)),
           cardsFromBeginning = cardsFromBeginning.appended(cardPlayed),
@@ -112,40 +110,26 @@ case class Game(
 
   /** Points
     */
-  def computePoints: Map[String, Int] = {
+  def computePoints: Map[Player, Int] = {
     val pointsA = tricksList
-      .filter(t => (t.wonBy == players._1) || (t.wonBy == players._3))
+      .filter(t => (t.wonBy == player1) || (t.wonBy == player3))
       .map(_.points)
       .sum
     val pointsB = tricksList
-      .filter(t => (t.wonBy == players._2) || (t.wonBy == players._4))
+      .filter(t => (t.wonBy == player2) || (t.wonBy == player4))
       .map(_.points)
       .sum
     Map(
-      players._1 -> pointsA,
-      players._2 -> pointsB,
-      players._3 -> pointsA,
-      players._4 -> pointsB
+      player1 -> pointsA,
+      player2 -> pointsB,
+      player3 -> pointsA,
+      player4 -> pointsB
     )
   }
 
   def printPoints: IO[Unit] = IO.println(
-    s"\n[points] Team 1: ${computePoints(players._1)} | Team 2: ${computePoints(players._2)}"
+    s"\n[points] Team 1: ${computePoints(player1)} | Team 2: ${computePoints(player2)}"
   )
-
-  /** Players functions
-    */
-  def nextPlayer(name: String): String = name match
-    case players._1 => players._2
-    case players._2 => players._3
-    case players._3 => players._4
-    case players._4 => players._1
-
-  def partner(name: String): String = name match
-    case players._1 => players._3
-    case players._2 => players._4
-    case players._3 => players._1
-    case players._4 => players._2
 
   // def leadingPlayer: String =
 
@@ -176,19 +160,34 @@ case class Game(
   def generateRandomAdjacentHandMapFromHere: Game = {
     val shuffledRest =
       Random.shuffle(
-        handMap.toList.filterNot(_._1.==(currentPlayer)).flatMap(_._2.cards)
+        handMap.toList.filterNot(_._1.==(currentPlayer)).flatMap(_._2)
       )
     val numCardMap = handMap.toList
       .filterNot(_._1.==(currentPlayer))
-      .map((player, l) => (player, l.cards.length))
-      .scanLeft(("", 0, 0))((acc, x) => (x._1, acc._3, acc._3 + x._2))
+      .map((player, l) => (player, l.length))
+      .scanLeft((EMPTY, 0, 0))((acc, x) => (x._1, acc._3, acc._3 + x._2))
       .tail
     val newHandMap =
       numCardMap
-        .map((player, x, y) => player -> Hand(shuffledRest.slice(x, y)))
+        .map((player, x, y) => player -> shuffledRest.slice(x, y))
         .toMap
-        .+(currentPlayer -> handMap(currentPlayer))
-    this.copy(handMap = newHandMap)
+        .+(currentPlayer -> handMap.getPlayerCards(currentPlayer))
+    this.copy(handMap = HandMap.fromMap(newHandMap))
+  }
+
+  def generateRandomOptGame(precision: Int): Option[Result] = {
+    if (handMap.initial) {
+      val resGame = randomOptimizeRec(precision)
+      Some(
+        Result(
+          handMap,
+          trumpSuit,
+          resGame.computePoints(player1),
+          resGame.computePoints(player2),
+          resGame.cardsFromBeginning
+        )
+      )
+    } else None
   }
 
   def randomOptimizeRec(precision: Int): Game =
@@ -228,46 +227,46 @@ case class Game(
           h4.cards.flatMap(c4 =>
             val t1 = Tricks.fromCards(
               List(
-                (c1, players._1),
-                (c2, players._2),
-                (c3, players._3),
-                (c4, players._4)
+                (c1, player1),
+                (c2, player2),
+                (c3, player3),
+                (c4, player4)
               ),
               trumpSuit
             )
             val t2 = Tricks.fromCards(
               List(
-                (c2, players._2),
-                (c3, players._3),
-                (c4, players._4),
-                (c1, players._1)
+                (c2, player2),
+                (c3, player3),
+                (c4, player4),
+                (c1, player1)
               ),
               trumpSuit
             )
             val t3 = Tricks.fromCards(
               List(
-                (c3, players._3),
-                (c4, players._4),
-                (c1, players._1),
-                (c2, players._2)
+                (c3, player3),
+                (c4, player4),
+                (c1, player1),
+                (c2, player2)
               ),
               trumpSuit
             )
             val t4 = Tricks.fromCards(
               List(
-                (c4, players._4),
-                (c1, players._1),
-                (c2, players._2),
-                (c3, players._3)
+                (c4, player4),
+                (c1, player1),
+                (c2, player2),
+                (c3, player3)
               ),
               trumpSuit
             )
 
             List(
-              Tricks(t1.wonBy, t1.points, List(c1, c2, c3, c4), players._1),
-              Tricks(t2.wonBy, t2.points, List(c2, c3, c4, c1), players._2),
-              Tricks(t3.wonBy, t3.points, List(c3, c4, c1, c2), players._3),
-              Tricks(t4.wonBy, t4.points, List(c4, c1, c2, c3), players._4)
+              Tricks(t1.wonBy, t1.points, List(c1, c2, c3, c4), player1),
+              Tricks(t2.wonBy, t2.points, List(c2, c3, c4, c1), player2),
+              Tricks(t3.wonBy, t3.points, List(c3, c4, c1, c2), player3),
+              Tricks(t4.wonBy, t4.points, List(c4, c1, c2, c3), player4)
             )
           )
         )
@@ -281,12 +280,12 @@ case class Game(
 object Game {
   case class OptimizedGameResult(
       players: (String, String, String, String),
-      handMap: Map[String, Hand],
+      handMap: HandMap,
       trumpSuit: Suit,
       pointsA: Int,
       pointsB: Int
   ) {
-    def toMap: Map[String, String] = Map(
+    /*def toMap: Map[String, String] = Map(
       players._1 -> handMap(players._1)
         .toStringTrumpOrdered(trumpSuit)
         .mkString(","),
@@ -303,27 +302,21 @@ object Game {
       "pointsA" -> pointsA.toString,
       "pointsB" -> pointsB.toString
     )
+  }*/
   }
   def init(
-      players: (String, String, String, String),
       trumpSuit: Suit,
       deck: Deck,
       pattern: DistributePattern
   ): Game = {
     val cutDeck = deck.cut
     val draw = cutDeck.distribute(pattern)
-    val handMap = Map(
-      players._1 -> draw.h1,
-      players._2 -> draw.h2,
-      players._3 -> draw.h3,
-      players._4 -> draw.h4
-    )
+    val handMap = HandMap.fromDraw(draw)
     Game(
-      players,
-      players._1,
+      player1,
       trumpSuit,
       handMap,
-      List.empty[(Card, String)],
+      List.empty[(Card, Player)],
       List.empty[Tricks],
       List.empty[Card],
       0,
@@ -331,30 +324,7 @@ object Game {
     )
   }
 
-  def printInfo(handMap: Map[String, Hand], trumpSuit: Suit): IO[Unit] =
-    IO.println("[info] players/cards") *>
-      IO.println(
-        handMap.toList
-          .map((s, l) =>
-            (
-              s,
-              Hand(
-                l.cards
-                  .sortBy(card =>
-                    if (card.suit == trumpSuit) card.height.getTrumpRank + 100
-                    else card.height.getBaseRank
-                  )
-                  .reverse
-              )
-            )
-          )
-          .map((p, h) =>
-            s"$p : ${h.cards.map(_.getNotation).mkString(",")} (${h.countPoints(Suit.Spades)}pts)"
-          )
-          .mkString("\n")
-      )
-
-  def computeGameForEachTrumpSuit(
+  /*def computeGameForEachTrumpSuit(
       players: (String, String, String, String),
       handMap: Map[String, Hand],
       precision: Int
@@ -385,7 +355,8 @@ object Game {
       )
       result.toMap
     )
-  }
+  }*/
 
   // def generate
+
 }

@@ -1,5 +1,7 @@
 import cats.effect.{ExitCode, IO, IOApp}
-import core.game.{Game, roundTree}
+import io.circe.generic.auto._, io.circe.syntax._
+
+import core.game.{Game, Player, roundTree}
 import core.game.cards.{Card, Deck, DistributePattern, Hand, Suit}
 import core.game.cards.DistributePattern.*
 import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
@@ -13,20 +15,28 @@ object Main extends IOApp {
 
       shuffledDeck = Deck.shuffled
 
-      /*game = Game
+      p = Player.player3
+
+      _ <- IO.println(p.nextPlayer)
+      _ <- IO.println(p.partner)
+
+      game = Game
         .init(
-          ("p1", "p2", "p3", "p4"),
           Suit.None,
           shuffledDeck,
           TwoThreeThree
         )
         .copy(trumpSuit = Spades)
 
-      optGame = game.randomOptimizeRec(1000)
+      /*optGame = game.randomOptimizeRec(1000)
 
       _ <- game.printInfo
       _ <- optGame.printTricks
       _ <- optGame.printPoints*/
+
+      res = game.generateRandomOptGame(1000).get
+
+      _ <- IO.println(res.asJson.spaces2)
 
       // _ = Game.computeGameForEachTrumpSuit()
 

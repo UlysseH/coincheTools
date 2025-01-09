@@ -1,3 +1,4 @@
+/*
 import cats.effect.{ExitCode, IO, IOApp}
 import core.game.{Game, roundTree}
 import core.game.cards.{Card, Deck, DistributePattern, Hand, Suit}
@@ -60,3 +61,4 @@ object ComputeCompleteTree extends IOApp {
     } yield ExitCode.Success
   }
 }
+ */
