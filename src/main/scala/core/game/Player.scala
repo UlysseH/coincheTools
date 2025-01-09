@@ -20,3 +20,7 @@ enum Player(s: String):
     case "p2" => player4
     case "p3" => player1
     case "p4" => player2
+
+enum Team:
+  case teamA
+  case teamB

@@ -184,7 +184,8 @@ case class Game(
           trumpSuit,
           resGame.computePoints(player1),
           resGame.computePoints(player2),
-          resGame.cardsFromBeginning
+          resGame.cardsFromBeginning,
+          resGame.tricksList
         )
       )
     } else None
@@ -278,32 +279,17 @@ case class Game(
 }
 
 object Game {
-  case class OptimizedGameResult(
-      players: (String, String, String, String),
-      handMap: HandMap,
-      trumpSuit: Suit,
-      pointsA: Int,
-      pointsB: Int
-  ) {
-    /*def toMap: Map[String, String] = Map(
-      players._1 -> handMap(players._1)
-        .toStringTrumpOrdered(trumpSuit)
-        .mkString(","),
-      players._2 -> handMap(players._2)
-        .toStringTrumpOrdered(trumpSuit)
-        .mkString(","),
-      players._3 -> handMap(players._3)
-        .toStringTrumpOrdered(trumpSuit)
-        .mkString(","),
-      players._4 -> handMap(players._4)
-        .toStringTrumpOrdered(trumpSuit)
-        .mkString(","),
-      "trumpSuit" -> trumpSuit.getLiteral,
-      "pointsA" -> pointsA.toString,
-      "pointsB" -> pointsB.toString
-    )
-  }*/
-  }
+  def fromHandMap(hMap: HandMap, trumpSuit: Suit): Game = Game(
+    player1,
+    trumpSuit,
+    hMap,
+    Nil,
+    Nil,
+    Nil,
+    0,
+    false
+  )
+
   def init(
       trumpSuit: Suit,
       deck: Deck,
@@ -323,40 +309,4 @@ object Game {
       false
     )
   }
-
-  /*def computeGameForEachTrumpSuit(
-      players: (String, String, String, String),
-      handMap: Map[String, Hand],
-      precision: Int
-  ) = {
-    List(Spades, Diamonds, Clubs, Hearts).map(trumpSuit =>
-      val optGame = Game(
-        players,
-        players._1,
-        trumpSuit,
-        handMap,
-        List.empty[(Card, String)],
-        List.empty[Tricks],
-        List.empty[Card],
-        0,
-        false
-      ).randomOptimizeRec(100)
-
-      val points = optGame.computePoints
-      val pointsTeamA = points(players._1)
-      val pointsTeamB = points(players._2)
-
-      val result = OptimizedGameResult(
-        players,
-        handMap,
-        trumpSuit,
-        pointsTeamA,
-        pointsTeamB
-      )
-      result.toMap
-    )
-  }*/
-
-  // def generate
-
 }

@@ -1,6 +1,8 @@
 package core.game
 
+import cats.effect.IO
 import core.game.cards.{Card, HandMap, Suit}
+import core.game.roundTree.Tricks
 import io.circe.Json
 import io.circe.syntax.*
 
@@ -9,9 +11,10 @@ case class Result(
     trumpSuit: Suit,
     pointsA: Int,
     pointsB: Int,
-    cardsPlayedOrdered: List[Card]
+    cardsPlayedOrdered: List[Card],
+    tricks: List[Tricks]
 ) {
-  def toResultStr = ResultStr(
+  def toResultStr: ResultStr = ResultStr(
     startingHandMap.cards1.map(_.getNotation).mkString(","),
     startingHandMap.cards2.map(_.getNotation).mkString(","),
     startingHandMap.cards3.map(_.getNotation).mkString(","),
@@ -19,7 +22,7 @@ case class Result(
     trumpSuit.getLiteral,
     pointsA.toString,
     pointsB.toString,
-    cardsPlayedOrdered
+    cardsPlayedOrdered.map(_.getNotation).mkString(",")
   )
   def toMap: Map[String, String] = Map(
     "cards1" -> startingHandMap.cards1.map(_.getNotation).mkString(","),
@@ -33,6 +36,14 @@ case class Result(
   )
 
   def toJson: Json = toMap.asJson
+
+  def printTricks: IO[Unit] = IO.println("\n[info] Tricks") *> IO.println(
+    tricks.map(_.print).mkString("\n")
+  )
+
+  def printPoints: IO[Unit] = IO.println(
+    s"\n[points] Team 1: $pointsA | Team 2: $pointsB"
+  )
 }
 
 case class ResultStr(

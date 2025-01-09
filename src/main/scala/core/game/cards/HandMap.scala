@@ -1,8 +1,11 @@
 package core.game.cards
 
 import cats.effect.IO
-import core.game.Player
-import core.game.Player._
+import core.game.{Game, Player, Result}
+import core.game.Player.*
+import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
+
+import scala.util.Random
 
 case class HandMap(
     cards1: List[Card],
@@ -18,6 +21,7 @@ case class HandMap(
     (player3, cards3),
     (player4, cards4)
   )
+  def toMap: Map[Player, List[Card]] = toList.map((p, c) => p -> c).toMap
   def getPlayerCards(player: Player): List[Card] = player match
     case Player.player1 => cards1
     case Player.player2 => cards2
@@ -53,6 +57,54 @@ case class HandMap(
           )
           .mkString("\n")
       )
+
+  def randomExceptPlayer(currentPlayer: Player): HandMap = {
+    val handMap = toMap
+    val shuffledRest =
+      Random.shuffle(
+        handMap.filterNot(_._1.==(currentPlayer)).flatMap(_._2)
+      )
+    val numCardMap = handMap.toList
+      .filterNot(_._1.==(currentPlayer))
+      .map((player, l) => (player, l.length))
+      .scanLeft((EMPTY, 0, 0))((acc, x) => (x._1, acc._3, acc._3 + x._2))
+      .tail
+    val newHandMap =
+      numCardMap
+        .map((player, x, y) => player -> shuffledRest.slice(x, y))
+        .toMap
+        .+(currentPlayer -> handMap(currentPlayer))
+    HandMap(
+      newHandMap(player1).toList,
+      newHandMap(player2).toList,
+      newHandMap(player3).toList,
+      newHandMap(player4).toList
+    )
+  }
+
+  def getBestExpectedResultTeamA(precision: Int): Result = {
+    val games = List(Spades, Diamonds, Clubs, Hearts).map(suit =>
+      Game.fromHandMap(this, suit)
+    )
+    val bestGame = games.flatMap(_.generateRandomOptGame(precision)).maxBy(_.pointsA)
+    bestGame
+  }
+
+  def optimizeValuesforPlayerHand(
+      player: Player,
+      numSamples: Int,
+      precision: Int
+  ): List[Result] = {
+    val samples = List.fill(numSamples)(randomExceptPlayer(player))
+    val games = samples.flatMap(hMap =>
+      List(Spades, Diamonds, Clubs, Hearts).map(suit =>
+        Game.fromHandMap(hMap, suit)
+      )
+    )
+    val results = games.flatMap(_.generateRandomOptGame(precision))
+
+    results
+  }
 }
 
 object HandMap {
@@ -61,4 +113,21 @@ object HandMap {
     HandMap(m(player1), m(player2), m(player3), m(player4))
   def fromDraw(draw: Draw): HandMap =
     HandMap(draw.h1.cards, draw.h2.cards, draw.h3.cards, draw.h4.cards)
+  def fromStrings(s1: String, s2: String, s3: String, s4: String): HandMap =
+    HandMap(
+      s1.split(",").toList.map(s => Card.fromLitteral(s)),
+      s2.split(",").toList.map(s => Card.fromLitteral(s)),
+      s3.split(",").toList.map(s => Card.fromLitteral(s)),
+      s4.split(",").toList.map(s => Card.fromLitteral(s))
+    )
+
+  def randomHand: HandMap = {
+    val shuffledDeck = Deck.shuffled
+    HandMap(
+      shuffledDeck.cards.slice(0, 8),
+      shuffledDeck.cards.slice(8, 16),
+      shuffledDeck.cards.slice(16, 24),
+      shuffledDeck.cards.slice(24, 32)
+    )
+  }
 }

@@ -31,3 +31,9 @@ case class Hand(cards: List[Card]) {
     case Card(_, height)                         => height.getBasePoints
   }.sum
 }
+
+object Hand {
+
+  /** (Js, Xs, Xs, Ad, Th, Xh, Xx, Xx), Xs <
+    */
+}
