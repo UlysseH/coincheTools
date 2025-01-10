@@ -86,11 +86,12 @@ case class HandMap(
     val games = List(Spades, Diamonds, Clubs, Hearts).map(suit =>
       Game.fromHandMap(this, suit)
     )
-    val bestGame = games.flatMap(_.generateRandomOptGame(precision)).maxBy(_.pointsA)
+    val bestGame =
+      games.flatMap(_.generateRandomOptGame(precision)).maxBy(_.pointsA)
     bestGame
   }
 
-  def optimizeValuesforPlayerHand(
+  def optimizeValuesForPlayerHand(
       player: Player,
       numSamples: Int,
       precision: Int

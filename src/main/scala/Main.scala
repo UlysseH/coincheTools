@@ -43,9 +43,27 @@ object Main extends IOApp {
         .optimizeValuesforPlayerHand(player1, 100, 1000)
         .filter(_.trumpSuit.==(Spades))*/
 
+      handMap = HandMap.randomHand
+
+      _ <- handMap.printInfo(Spades)
+      _ <- IO.println("\n")
+
+      optGame = Game
+        .fromHandMap(handMap, Spades)
+        .generateRandomOptGame(1000)
+        .get
+
+      _ <- optGame.printTricks
+      _ <- optGame.printPoints
+
+      _ <- IO.never
+
       results2 = List
-        .fill(100)(HandMap.randomHand)
-        .map(_.getBestExpectedResultTeamA(1000))
+        .fill(10)(HandMap.randomHand)
+        .map(hMap => {
+          hMap
+        })
+        .map(_.getBestExpectedResultTeamA(100000))
 
       evs = Contract.evFromSimulations(results2, teamA)
 

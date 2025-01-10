@@ -1,7 +1,7 @@
 package core.game
 
 import cats.effect.IO
-import core.game.Player._
+import core.game.Player.*
 import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
 import core.game.cards.{Card, Deck, DistributePattern, Hand, HandMap, Suit}
 import core.game.roundTree.Tricks
@@ -9,6 +9,8 @@ import io.circe.syntax.*
 
 import scala.annotation.tailrec
 import scala.util.Random
+import scala.math
+import scala.math.BigDecimal.RoundingMode
 
 case class Game(
     currentPlayer: Player,
@@ -200,20 +202,30 @@ case class Game(
       val y = res
         .groupBy(_.cardsFromBeginning(step))
         .toList
-        .map((c, l) =>
+        .map((c, l) => {
+          val mean = l.map(_.computePoints(currentPlayer)).sum / l.length
           (
             c,
-            l.map(_.computePoints(currentPlayer)).sum / l.length
+            l.map(_.computePoints(currentPlayer)).sum / l.length,
+            standardDeviation(l.map(_.computePoints(currentPlayer)), mean)
           )
-        )
+        })
         .sortBy(_._2)
         .reverse
 
-      // println(y.mkString("\n"))
-      // println("\n")
+      println(y.mkString("\n"))
+      println("\n")
 
       nextStep(y.head._1).randomOptimizeRec(precision)
     }
+
+  def standardDeviation(points: List[Int], mean: Int): BigDecimal = BigDecimal(
+    math.sqrt(
+      points
+        .map(pts => math.pow(pts.toDouble - mean.toDouble, 2))
+        .sum / points.length
+    )
+  ).setScale(2, RoundingMode.HALF_DOWN)
 
   def generateAllTricksWithPoints(
       h1: Hand,
