@@ -29,10 +29,10 @@ object Main extends IOApp {
         .copy(trumpSuit = Spades)
 
       hMap = HandMap.fromStrings(
-        "Js,As,7s,Ts,Qh,9c,8h,8d",
-        "Ks,Td,Kd,Jc,Jh,Jd,7h,7d",
-        "8s,Ac,Ah,Th,Qd,Qc,8c,7c",
-        "9s,Tc,Qs,Ad,Kh,Kc,9d,9h"
+        "Js,Qs,Ac,Td,Tc,Qd,Jc,9d",
+        "Ks,8s,Th,Kd,Qh,8d,7d,7h",
+        "9s,Ts,Ah,Ad,Qc,Jd,9h,7c",
+        "As,7s,Kh,Kc,Jh,9c,8h,8c"
       )
       /*
       _ <- hMap.printInfo(Spades)
@@ -45,31 +45,33 @@ object Main extends IOApp {
 
       handMap = HandMap.randomHand
 
-      _ <- handMap.printInfo(Spades)
+      _ <- hMap.printInfo(Spades)
       _ <- IO.println("\n")
 
-      optGame = Game
-        .fromHandMap(handMap, Spades)
-        .generateRandomOptGame(1000)
+      (optGame, optData) = Game
+        .fromHandMap(hMap, Spades)
+        .generateRandomOptGame(10000)
         .get
 
-      _ <- optGame.printTricks
-      _ <- optGame.printPoints
+      _ <- IO.println(optData.asJson.spaces4)
+
+      // _ <- optGame.printTricks
+      // _ <- optGame.printPoints
 
       _ <- IO.never
 
-      results2 = List
+      /*results2 = List
         .fill(10)(HandMap.randomHand)
         .map(hMap => {
           hMap
         })
-        .map(_.getBestExpectedResultTeamA(100000))
+        .map(_.getBestExpectedResultTeamA(10000))*/
 
-      evs = Contract.evFromSimulations(results2, teamA)
+      /*evs = Contract.evFromSimulations(results2, teamA)
 
       _ <- IO.println(
         evs.mkString("\n")
-      )
+      )*/
 
       /*evs = Contract.values.toList.map(contract => {
         val outcomes =

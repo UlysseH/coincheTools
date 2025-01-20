@@ -34,6 +34,13 @@ case class HandMap(
     case Player.player3 => this.copy(cards3 = cards3.filterNot(_.==(card)))
     case Player.player4 => this.copy(cards4 = cards4.filterNot(_.==(card)))
 
+  def toStringMap: Map[String, String] = Map(
+    "cards1" -> cards1.map(_.getNotation).mkString(","),
+    "cards2" -> cards2.map(_.getNotation).mkString(","),
+    "cards3" -> cards3.map(_.getNotation).mkString(","),
+    "cards4" -> cards4.map(_.getNotation).mkString(",")
+  )
+
   def printInfo(trumpSuit: Suit): IO[Unit] =
     IO.println(s"${if (initial) "[Initial]" else "[Playing]"} players/cards") *>
       IO.println(
@@ -58,7 +65,10 @@ case class HandMap(
           .mkString("\n")
       )
 
-  def randomExceptPlayer(currentPlayer: Player): HandMap = {
+  def randomExceptPlayer(
+      currentPlayer: Player,
+      forbiddenMap: Map[Player, List[Card]]
+  ): HandMap = {
     val handMap = toMap
     val shuffledRest =
       Random.shuffle(
@@ -69,9 +79,33 @@ case class HandMap(
       .map((player, l) => (player, l.length))
       .scanLeft((EMPTY, 0, 0))((acc, x) => (x._1, acc._3, acc._3 + x._2))
       .tail
+
+    val listOfDecksToChooseFrom =
+      numCardMap.scanLeft(shuffledRest)((deck, elt) =>
+        deck.filterNot(card =>
+          forbiddenMap(elt._1).contains(card)
+        ) ++ forbiddenMap(elt._1)
+      )
+
+    val x =
+      numCardMap.scanLeft((shuffledRest, List.empty[Card]))((acc, elt) => {
+        val player = elt._1
+        val rest = acc._1
+        val restForbiddenCardsRearranged = (rest.filterNot(card =>
+          forbiddenMap(player).contains(card)
+        ) ++ forbiddenMap(player)).toList
+        (
+          restForbiddenCardsRearranged
+            .slice(8, restForbiddenCardsRearranged.length),
+          restForbiddenCardsRearranged.slice(0, 8)
+        )
+      })
+
     val newHandMap =
       numCardMap
-        .map((player, x, y) => player -> shuffledRest.slice(x, y))
+        .map((player, x, y) => {
+          player -> shuffledRest.slice(x, y)
+        })
         .toMap
         .+(currentPlayer -> handMap(currentPlayer))
     HandMap(
@@ -87,22 +121,27 @@ case class HandMap(
       Game.fromHandMap(this, suit)
     )
     val bestGame =
-      games.flatMap(_.generateRandomOptGame(precision)).maxBy(_.pointsA)
+      games
+        .flatMap(_.generateRandomOptGame(precision))
+        .map(_._1)
+        .maxBy(_.pointsA)
     bestGame
   }
 
   def optimizeValuesForPlayerHand(
       player: Player,
       numSamples: Int,
-      precision: Int
+      precision: Int,
+      forbiddenHandMap: Map[Player, List[Card]]
   ): List[Result] = {
-    val samples = List.fill(numSamples)(randomExceptPlayer(player))
+    val samples =
+      List.fill(numSamples)(randomExceptPlayer(player, forbiddenHandMap))
     val games = samples.flatMap(hMap =>
       List(Spades, Diamonds, Clubs, Hearts).map(suit =>
         Game.fromHandMap(hMap, suit)
       )
     )
-    val results = games.flatMap(_.generateRandomOptGame(precision))
+    val results = games.flatMap(_.generateRandomOptGame(precision)).map(_._1)
 
     results
   }

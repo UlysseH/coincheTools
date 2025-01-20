@@ -1,6 +1,7 @@
 package core.game
 
 import cats.effect.IO
+import core.game.GameOutputs.ForOptimizeAnalysis
 import core.game.Player.*
 import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
 import core.game.cards.{Card, Deck, DistributePattern, Hand, HandMap, Suit}
@@ -20,7 +21,8 @@ case class Game(
     tricksList: List[Tricks],
     cardsFromBeginning: List[Card],
     step: Int,
-    isComplete: Boolean
+    isComplete: Boolean,
+    forbiddenHandMap: Map[Player, List[Card]]
 ) {
   def printInfo: IO[Unit] = handMap.printInfo(trumpSuit)
 
@@ -33,11 +35,19 @@ case class Game(
 
   val playerCards: List[Card] = handMap.getPlayerCards(currentPlayer)
 
+
+  /** TODO: Instead of computing separately forbidden hand map and playable
+   * card, each playable card case implies potential future forbidden cards
+   */
   val playableCards: List[Card] = {
     val partnerIsMaster: Boolean =
-      cardsInPlay.headOption.exists((_, player) =>
-        player.partner == currentPlayer
-      )
+      cardsInPlay
+        .sortBy((card, _) =>
+          if (cardsInPlay.head._1.suit == trumpSuit) card.height.getTrumpRank
+          else card.height.getBaseRank
+        )
+        .headOption
+        .exists((_, player) => player.partner == currentPlayer)
     val playerTrumpCards = playerCards.filter(_.suit.==(trumpSuit))
 
     val playableTrumpCards: List[Card] =
@@ -76,6 +86,13 @@ case class Game(
   def nextStep(cardPlayed: Card): Game = {
     val _ = handMap
     val newHandMap = handMap.removeCard(cardPlayed, currentPlayer)
+
+    /** TODO: Instead of computing separately forbidden hand map and playable
+      * card, each playable card case implies potential future forbidden cards
+      */
+
+    val newForbiddenHandMap =
+      forbiddenHandMap.updated(currentPlayer, (forbiddenHandMap(currentPlayer)))
 
     cardsInPlay.length match
       case 3 => {
@@ -156,10 +173,16 @@ case class Game(
       generateRandomPlayableCard
     ).generateRandomGameFromHere
 
+  final def generateRandomGameFromNextCard(card: Card): Game = if (isComplete)
+    this
+  else
+    nextStep(card).generateRandomGameFromHere
+
   /** Generate a new game with random hand map for players other than current
     * player
     */
   def generateRandomAdjacentHandMapFromHere: Game = {
+
     val shuffledRest =
       Random.shuffle(
         handMap.toList.filterNot(_._1.==(currentPlayer)).flatMap(_._2)
@@ -177,47 +200,87 @@ case class Game(
     this.copy(handMap = HandMap.fromMap(newHandMap))
   }
 
-  def generateRandomOptGame(precision: Int): Option[Result] = {
+  def generateRandomOptGame(
+      precision: Int
+  ): Option[(Result, ForOptimizeAnalysis)] = {
     if (handMap.initial) {
-      val resGame = randomOptimizeRec(precision)
+      val (resGame, data) = randomOptimizeRec(
+        precision,
+        ForOptimizeAnalysis(
+          (
+            handMap.cards1.map(_.getNotation),
+            handMap.cards2.map(_.getNotation),
+            handMap.cards3.map(_.getNotation),
+            handMap.cards4.map(_.getNotation)
+          ),
+          Nil,
+          Nil
+        )
+      )
       Some(
-        Result(
-          handMap,
-          trumpSuit,
-          resGame.computePoints(player1),
-          resGame.computePoints(player2),
-          resGame.cardsFromBeginning,
-          resGame.tricksList
+        (
+          Result(
+            handMap,
+            trumpSuit,
+            resGame.computePoints(player1),
+            resGame.computePoints(player2),
+            resGame.cardsFromBeginning,
+            resGame.tricksList
+          ),
+          data
         )
       )
     } else None
   }
 
-  def randomOptimizeRec(precision: Int): Game =
-    if (isComplete) this
-    else {
-      val res = List.fill(precision)(
-        generateRandomAdjacentHandMapFromHere.generateRandomGameFromHere
+  def randomOptimizeRec(
+      precision: Int,
+      data: ForOptimizeAnalysis
+  ): (Game, ForOptimizeAnalysis) =
+    if (isComplete) {
+      (this, data)
+    } else {
+      val res = playableCards.flatMap(card =>
+        List.fill(precision)(
+          generateRandomAdjacentHandMapFromHere.generateRandomGameFromNextCard(
+            card
+          )
+        )
       )
-      val y = res
+
+      val points = res
         .groupBy(_.cardsFromBeginning(step))
         .toList
-        .map((c, l) => {
-          val mean = l.map(_.computePoints(currentPlayer)).sum / l.length
-          (
-            c,
-            l.map(_.computePoints(currentPlayer)).sum / l.length,
-            standardDeviation(l.map(_.computePoints(currentPlayer)), mean)
-          )
-        })
-        .sortBy(_._2)
-        .reverse
+        .map((card, games) => (card, games.map(_.computePoints(currentPlayer))))
 
-      println(y.mkString("\n"))
-      println("\n")
+      val bestCardChoice =
+        points.map((card, l) => (card, l.sum)).sortBy(_._2).reverse.head._1
 
-      nextStep(y.head._1).randomOptimizeRec(precision)
+      val dataInc =
+        data.copy(
+          playedCards = data.playedCards.appended(bestCardChoice.getNotation),
+          vectors = data.vectors ++ points
+            .map((card, pts) =>
+              (
+                step,
+                card.getNotation,
+                pts
+                /*.groupBy(x => x)
+                .toList
+                .map((x, l) => (x, l.length))
+                .sortBy(_._1)*/
+              )
+            )
+            .sortBy(_._3.sum)
+            .reverse
+        )
+
+      nextStep(bestCardChoice).randomOptimizeRec(precision, dataInc)
     }
+
+  /*def bucketCounts(points: List[Int]) = List(0, 82, 90, 100, 110, 120, 130, 140, 150, 160).map(
+    floor => if
+  )*/
 
   def standardDeviation(points: List[Int], mean: Int): BigDecimal = BigDecimal(
     math.sqrt(
@@ -227,7 +290,7 @@ case class Game(
     )
   ).setScale(2, RoundingMode.HALF_DOWN)
 
-  def generateAllTricksWithPoints(
+  /*def generateAllTricksWithPoints(
       h1: Hand,
       h2: Hand,
       h3: Hand,
@@ -285,7 +348,7 @@ case class Game(
         )
       )
     )
-  }
+  }*/
 
   // val isPartner(a, b)
 }
@@ -299,8 +362,24 @@ object Game {
     Nil,
     Nil,
     0,
-    false
+    false,
+    Map.empty[Player, List[Card]]
   )
+
+  def everySuitFromHandMap(hMap: HandMap): List[Game] =
+    List(Spades, Hearts, Diamonds, Clubs).map(suit =>
+      Game(
+        player1,
+        suit,
+        hMap,
+        Nil,
+        Nil,
+        Nil,
+        0,
+        false,
+        Map.empty[Player, List[Card]]
+      )
+    )
 
   def init(
       trumpSuit: Suit,
@@ -318,7 +397,8 @@ object Game {
       List.empty[Tricks],
       List.empty[Card],
       0,
-      false
+      false,
+      Map.empty[Player, List[Card]]
     )
   }
 }

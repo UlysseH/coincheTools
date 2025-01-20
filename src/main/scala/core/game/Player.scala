@@ -21,6 +21,14 @@ enum Player(s: String):
     case "p3" => player1
     case "p4" => player2
 
+object Player {
+  def fromString(s: String): Player = s match
+    case "p1" => player1
+    case "p2" => player2
+    case "p3" => player3
+    case "p4" => player4
+}
+
 enum Team:
   case teamA
   case teamB
