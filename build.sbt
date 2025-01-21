@@ -28,7 +28,8 @@ lazy val root = (project in file("."))
       // "ch.qos.logback" % "logback-classic" % "1.4.7",
       "org.tpolecat" %% "skunk-core" % "0.6.2",
       "org.tpolecat" %% "skunk-circe" % "0.6.2",
-      "com.github.nscala-time" %% "nscala-time" % "2.32.0"
+      "com.github.nscala-time" %% "nscala-time" % "2.32.0",
+      "org.scalatest" %% "scalatest" % "3.2.19" % "test"
     )
   )
 

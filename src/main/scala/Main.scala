@@ -28,12 +28,34 @@ object Main extends IOApp {
         )
         .copy(trumpSuit = Spades)
 
-      hMap = HandMap.fromStrings(
+      /*hMap = HandMap.fromStrings(
         "Js,Qs,Ac,Td,Tc,Qd,Jc,9d",
         "Ks,8s,Th,Kd,Qh,8d,7d,7h",
         "9s,Ts,Ah,Ad,Qc,Jd,9h,7c",
         "As,7s,Kh,Kc,Jh,9c,8h,8c"
+      )*/
+
+      hMap = HandMap.fromStrings(
+        "Js, Qs,Ac,Td,Tc,Qd,Jc,9d",
+        "8s,Th,Kd,Qh,8d,7d,7h",
+        "9s,Ts,Ah,Ad,Qc,Jd,9h,7c",
+        "As,7s,Kh,Kc,Jh,9c,8h,8c"
       )
+
+      res = hMap.genNewHandMapWithForbidden(
+        player1,
+        Map(
+          player2 -> Spades.generateCards,
+          player3 -> Nil,
+          player4 -> Nil
+        )
+      )
+
+      x = res + (player1 -> hMap.getPlayerCards(player1))
+      y = HandMap.fromMap(x)
+
+      _ <- y.printInfo
+      _ <- IO.never
       /*
       _ <- hMap.printInfo(Spades)
       _ <- hMap.randomExceptPlayer(player1).printInfo(Spades)

@@ -5,6 +5,7 @@ import core.game.{Game, Player, Result}
 import core.game.Player.*
 import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
 
+import scala.annotation.tailrec
 import scala.util.Random
 
 case class HandMap(
@@ -145,6 +146,103 @@ case class HandMap(
 
     results
   }
+
+  def genNewHandMapWithForbidden(
+      player: Player,
+      fHandMap: Map[Player, List[Card]]
+  ): Map[Player, List[Card]] = {
+    val handSizeMap: Map[Player, Int] =
+      toMap.filterNot(_._1.==(player)).map((p, l) => (p, l.length))
+
+    takeOneAndPassToNext(
+      player.nextPlayer,
+      handSizeMap.map((p, _) => (p, List.empty[Card])),
+      toMap.filter(_._1.==(player)).toList.flatMap(_._2)
+    )(fHandMap, handSizeMap)
+
+  }
+
+  def takeOneAndPassToNext(
+      player: Player,
+      // hMap is the card map of three Players (used for optimizing a player game)
+      hMap: Map[Player, List[Card]],
+      rest: List[Card]
+  )(implicit
+      fHandMap: Map[Player, List[Card]],
+      handSizeMap: Map[Player, Int]
+  ): Map[Player, List[Card]] = {
+    if (hMap.toList.forall((p, l) => l.length == handSizeMap(p))) hMap
+    else {
+      if (hMap(player).length == handSizeMap(player))
+        takeOneAndPassToNext(player.nextPlayer, hMap, rest)
+      else {
+        val forbidden = fHandMap(player)
+        val nextStep = rest.collectFirst({
+          case card if !forbidden.contains(card) =>
+            takeOneAndPassToNext(
+              if (handSizeMap.isDefinedAt(player.nextPlayer)) player.nextPlayer
+              else player.nextPlayer.nextPlayer,
+              hMap.updated(
+                player,
+                hMap(player).appended(card)
+              ),
+              rest.filterNot(_.==(card))
+            )
+        })
+        nextStep match
+          case Some(value) => value
+          case None =>
+            takeOneAndPassToNext(
+              player,
+              takeInPlayerHand(
+                player,
+                forbidden,
+                hMap,
+                player.nextPlayer
+              ),
+              rest
+            )
+      }
+    }
+  }
+
+  @tailrec
+  final def takeInPlayerHand(
+      stealingPlayer: Player,
+      forbiddenCards: List[Card],
+      hMap: Map[Player, List[Card]],
+      targetedPlayer: Player
+  ): Map[Player, List[Card]] =
+    if (hMap.isDefinedAt(targetedPlayer)) {
+      hMap(targetedPlayer).collectFirst({
+        case card if !forbiddenCards.contains(card) =>
+          hMap
+            .updated(
+              stealingPlayer,
+              hMap(stealingPlayer).appended(card)
+            )
+            .updated(
+              targetedPlayer,
+              hMap(targetedPlayer).filterNot(_.==(card))
+            )
+      }) match
+        case Some(value) => value
+        case None =>
+          takeInPlayerHand(
+            stealingPlayer,
+            forbiddenCards,
+            hMap,
+            if (targetedPlayer.nextPlayer == stealingPlayer)
+              stealingPlayer.nextPlayer
+            else targetedPlayer.nextPlayer
+          )
+    } else
+      takeInPlayerHand(
+        stealingPlayer,
+        forbiddenCards,
+        hMap,
+        targetedPlayer.nextPlayer
+      )
 }
 
 object HandMap {
