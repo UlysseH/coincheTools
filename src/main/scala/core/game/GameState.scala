@@ -8,6 +8,7 @@ import scala.util.Random
 case class GameState(
     gameId: String,
     step: Int,
+    playedCardsWithPlayers: List[(Card, Player)],
     currentPlayer: Player,
     remainingHandMap: HandMap,
     askedSuit: Suit,
@@ -15,6 +16,9 @@ case class GameState(
     masterPlayer: Option[Player],
     masterCard: Option[Card]
 ) {
+  val isFinal: Boolean =
+    remainingHandMap.toMap.toList.map(_._2.length).sum.==(0)
+
   private val playerCards: List[Card] =
     remainingHandMap.getPlayerCards(currentPlayer)
 
@@ -32,10 +36,12 @@ case class GameState(
     if (step % 4 == 0)
       copy(
         step = step + 1,
+        playedCardsWithPlayers =
+          playedCardsWithPlayers.appended((card, currentPlayer)),
         currentPlayer =
           if (takesLead) currentPlayer
           else masterPlayer.get,
-        remainingHandMap = remainingHandMap,
+        remainingHandMap = remainingHandMap.removeCard(card, currentPlayer),
         askedSuit = Suit.None,
         masterPlayer = Some(currentPlayer),
         masterCard = Some(card)
@@ -44,8 +50,10 @@ case class GameState(
       // Trick is not complete
       copy(
         step = step + 1,
+        playedCardsWithPlayers =
+          playedCardsWithPlayers.appended((card, currentPlayer)),
         currentPlayer = currentPlayer.nextPlayer,
-        remainingHandMap = remainingHandMap,
+        remainingHandMap = remainingHandMap.removeCard(card, currentPlayer),
         askedSuit =
           if (askedSuit == Suit.None)
             card.suit
@@ -88,7 +96,9 @@ case class GameState(
               .==(trumpSuit) && card.isAbove(masterCard, trumpSuit) =>
           // println("Hey Yo !")
           Some((card, askedSuit.generateCards, true))
-        case (_, false, false, true, _, Some(masterCard)) =>
+        case (_, false, false, true, _, Some(masterCard))
+            if card.suit
+              .==(trumpSuit) =>
           // println("Hey Ya !")
           Some(
             (
@@ -99,6 +109,7 @@ case class GameState(
               false
             )
           )
+        case (_, false, false, true, _, _) => None
         case (_, true, _, false, _, _) =>
           Some((card, trumpSuit.generateCards, false))
         case (card, true, _, true, _, _) if card.suit != trumpSuit => None
@@ -127,5 +138,6 @@ case class GameState(
     Random.shuffle(playerCards).flatMap(isPlayable).head
 
   // This version is by no means lazy ;)
-  def generatePlayableCards: List[(Card, List[Card], Boolean)] = playerCards.flatMap(isPlayable)
+  def generatePlayableCards: List[(Card, List[Card], Boolean)] =
+    playerCards.flatMap(isPlayable)
 }

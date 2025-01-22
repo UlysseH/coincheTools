@@ -9,7 +9,7 @@ import cats.implicits.*
 import core.game.Player.*
 import core.game.Team.teamA
 import core.game.bidding.Contract
-import core.game.roundTree.GameTreeNode
+import core.game.roundTree.{GameTreeNode, Tricks}
 
 import scala.math.BigDecimal.RoundingMode
 
@@ -36,28 +36,41 @@ object Main extends IOApp {
       )*/
 
       hMap = HandMap.fromStrings(
-        "Js,Qs,Ac,Td,Tc,Qd,Jc,9d",
-        "Ks,8s,Th,Kd,Qh,8d,7d,7h",
-        "9s,Ts,Ah,Ad,Qc,Jd,9h,7c",
+        "Js,Qs,8s,Ac,Tc,Qd,Jc,9d",
+        "9s,Ks,Th,Kd,Qh,8d,7d,7h",
+        "Ts,Ah,Ad,Td,Qc,Jd,9h,7c",
         "As,7s,Kh,Kc,Jh,9c,8h,8c"
       )
 
       _ <- hMap.printInfo(Spades)
 
-      randomGame = GameV2("aze", hMap, Spades)
-      res = randomGame.generateRandomGameWithFixedHandMap(
-        randomGame.initialGameState,
-        Map(
-          player1 -> List.empty[Card],
-          player2 -> List.empty[Card],
-          player3 -> List.empty[Card],
-          player4 -> List.empty[Card]
-        )
+      initialForbiddenHandMap = Map(
+        player1 -> List.empty[Card],
+        player2 -> List.empty[Card],
+        player3 -> List.empty[Card],
+        player4 -> List.empty[Card]
       )
 
-      tricks = GameV2.computeTricksFromGameStates(res).get
+      randomGame = GameV2("aze", hMap, Spades)
+      /* res = randomGame.generateRandomGameWithFixedHandMap(
+        randomGame.initialGameState,
+        initialForbiddenHandMap
+      )*/
+
+      res2 = randomGame.optimizeRecFromGameState(
+        randomGame.initialGameState,
+        initialForbiddenHandMap,
+        1000
+      )
+
+      tricks = GameV2.computeTricksFromGameState(res2).get
 
       _ <- IO.println(tricks.map(_.print).mkString("\n"))
+
+      _ <- IO.println(
+        s"[result] team1: ${Tricks.computePoints(tricks, player1)} | team2: ${Tricks
+            .computePoints(tricks, player2)}"
+      )
 
       _ <- IO.never
 

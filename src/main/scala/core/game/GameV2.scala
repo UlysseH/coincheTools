@@ -10,66 +10,44 @@ case class GameV2(
     trumpSuit: Suit
 ) {
   def initialGameState: GameState =
-    GameState(id, 1, player1, startingHandMap, Suit.None, trumpSuit, None, None)
+    GameState(
+      id,
+      1,
+      List.empty[(Card, Player)],
+      player1,
+      startingHandMap,
+      Suit.None,
+      trumpSuit,
+      None,
+      None
+    )
 
   // This is the function used to randomly generate a game from a Game State
   def generateRandomGameWithFixedHandMap(
       gameState: GameState,
       forbiddenHandMap: Map[Player, List[Card]]
-  ): List[(Card, Player, GameState)] = {
+  ): GameState = {
     // println(gameState.step)
     // println
     val handMap = gameState.remainingHandMap
-    if (handMap.toMap.toList.map(_._2.length).sum == 0) Nil
+    if (handMap.toMap.toList.map(_._2.length).sum == 0) gameState
     else {
+      // println(handMap.toMap.map((p, l) => (p, l.length)))
+      // println(gameState.currentPlayer)
       // Compute one playable card for the player, new forbidden cards are not relevant here since the HandMap is fixed
       val (randomPlayableCard, _, takesLead) =
         gameState.generateRandomPlayableCardWithCorrelated
 
-      // Compute values for next Game State
-      val nextPlayer = gameState.currentPlayer.nextPlayer
-      val remainingHandMap = gameState.remainingHandMap.removeCard(
+      val nextGameState = gameState.computeNextGameState(
         randomPlayableCard,
-        gameState.currentPlayer
+        takesLead
       )
-
-      val nextGameState = {
-        // For when the trick is over since 4 cards have been played
-        if (gameState.step % 4 == 0)
-          gameState.copy(
-            step = gameState.step + 1,
-            currentPlayer =
-              if (takesLead) gameState.currentPlayer
-              else gameState.masterPlayer.get,
-            remainingHandMap = remainingHandMap,
-            askedSuit = Suit.None,
-            masterPlayer = Some(gameState.currentPlayer),
-            masterCard = Some(randomPlayableCard)
-          )
-        else
-          // Trick is not complete
-          gameState.copy(
-            step = gameState.step + 1,
-            currentPlayer = nextPlayer,
-            remainingHandMap = remainingHandMap,
-            askedSuit =
-              if (gameState.askedSuit == Suit.None)
-                randomPlayableCard.suit
-              else gameState.askedSuit,
-            masterPlayer =
-              if (takesLead) Some(gameState.currentPlayer)
-              else gameState.masterPlayer,
-            masterCard =
-              if (takesLead) Some(randomPlayableCard)
-              else gameState.masterCard
-          )
-      }
 
       // Iterating to next player
       generateRandomGameWithFixedHandMap(
         nextGameState,
         forbiddenHandMap
-      ).prepended((randomPlayableCard, gameState.currentPlayer, gameState))
+      )
     }
 
   }
@@ -79,10 +57,12 @@ case class GameV2(
       gameState: GameState,
       forbiddenHandMap: Map[Player, List[Card]],
       precision: Int
-  ): List[GameState] = {
+  ): GameState = {
+    // println(gameState.step)
     val handMap = gameState.remainingHandMap
-    if (handMap.toMap.toList.map(_._2.length).sum == 0) Nil
+    if (handMap.toMap.toList.map(_._2.length).sum == 0) gameState
     else {
+      val currentPlayer = gameState.currentPlayer
 
       /** For each playable hand, we generate a number of random games (with
         * different starting HandMap)
@@ -99,8 +79,8 @@ case class GameV2(
             gameState.computeNextGameState(playableCard, takesLead)
 
           val newForbiddenHandMap = forbiddenHandMap.updated(
-            gameState.currentPlayer,
-            forbiddenHandMap(gameState.currentPlayer)
+            currentPlayer,
+            forbiddenHandMap(currentPlayer)
               .++(forbiddenCards)
               .distinct
           )
@@ -115,20 +95,26 @@ case class GameV2(
               * taking previous blocking actions into account
               */
             val newHandMap =
-              handMap.genNewHandMapWithForbidden(
-                nextState.currentPlayer,
-                newForbiddenHandMap
-              )
+              handMap
+                .genNewHandMapWithForbidden(
+                  currentPlayer,
+                  newForbiddenHandMap
+                )
 
             /** Then we input the Randomly generated HandMap to the GameState
               */
             val randomizedGameState =
-              gameState.copy(remainingHandMap = newHandMap)
+              gameState
+                .copy(
+                  remainingHandMap =
+                    newHandMap.removeCard(playableCard, currentPlayer)
+                )
+                .computeNextGameState(playableCard, takesLead)
 
             /** Computing the tricks and the points associated
               */
             val tricks = GameV2
-              .computeTricksFromGameStates(
+              .computeTricksFromGameState(
                 generateRandomGameWithFixedHandMap(
                   randomizedGameState,
                   forbiddenHandMap
@@ -140,88 +126,26 @@ case class GameV2(
 
             points
           })
-          (randomizedGameState, randomGamesResults.sum / precision)
+          (
+            playableCard,
+            nextState,
+            newForbiddenHandMap,
+            randomGamesResults.sum / precision
+          )
         })
       }
 
-      val chosenGameState =
-        resultsOfSimulationsForEachPlayableCard.maxBy(_._2)._1
-
-      // Generate a new hand map were opponents hands are reshuffled, taking previous blocking actions into account
-      val newHandMap =
-        handMap.genNewHandMapWithForbidden(
-          gameState.currentPlayer,
-          forbiddenHandMap
+      val (playedCard, chosenGameState, newForbiddenHandMap) =
+        (
+          resultsOfSimulationsForEachPlayableCard.maxBy(_._4)._1,
+          resultsOfSimulationsForEachPlayableCard.maxBy(_._4)._2,
+          resultsOfSimulationsForEachPlayableCard.maxBy(_._4)._3
         )
 
-      // Create a new GameState with the new hand
-      val randomizedGameState = gameState.copy(remainingHandMap = newHandMap)
-
-      // Compute one playable card for the player, with future forbidden cards from playing this card and takesLead bool
-      val (randomPlayableCard, newForbiddenCards, takesLead) =
-        randomizedGameState.generateRandomPlayableCardWithCorrelated
-
-      // Compute values for next Game State
-      val nextPlayer = randomizedGameState.currentPlayer.nextPlayer
-      val remainingHandMap = randomizedGameState.remainingHandMap.removeCard(
-        randomPlayableCard,
-        randomizedGameState.currentPlayer
-      )
-      val newForbiddenHandMap = forbiddenHandMap.updated(
-        randomizedGameState.currentPlayer,
-        (forbiddenHandMap(
-          randomizedGameState.currentPlayer
-        ) ++ newForbiddenCards).distinct
-      )
-
-      println(newHandMap.toStringMap)
-      println(
-        s"${gameState.currentPlayer} -> ${randomPlayableCard.getNotation} (${gameState.askedSuit} asked)"
-      )
-      println(
-        newForbiddenHandMap.map((p, l) =>
-          (p, l.map(_.getNotation).mkString(","))
-        )
-      )
-
-      val nextGameState =
-        randomizedGameState.computeNextGameState(randomPlayableCard, takesLead)
-
-      /*val nextGameState = {
-        // For when the trick is over since 4 cards have been played
-        if (randomizedGameState.step % 4 == 0)
-          randomizedGameState.copy(
-            step = randomizedGameState.step + 1,
-            currentPlayer =
-              if (takesLead) randomizedGameState.currentPlayer
-              else randomizedGameState.masterPlayer.get,
-            remainingHandMap = remainingHandMap,
-            askedSuit = Suit.None,
-            masterPlayer = Some(randomizedGameState.currentPlayer),
-            masterCard = Some(randomPlayableCard)
-          )
-        else
-          // Trick is not complete
-          randomizedGameState.copy(
-            step = randomizedGameState.step + 1,
-            currentPlayer = nextPlayer,
-            remainingHandMap = remainingHandMap,
-            askedSuit =
-              if (randomizedGameState.askedSuit == Suit.None)
-                randomPlayableCard.suit
-              else randomizedGameState.askedSuit,
-            masterPlayer =
-              if (takesLead) Some(randomizedGameState.currentPlayer)
-              else randomizedGameState.masterPlayer,
-            masterCard =
-              if (takesLead) Some(randomPlayableCard)
-              else randomizedGameState.masterCard
-          )
-      }*/
-
-      // Iterating to next player
+      /** We then iterate to next player to play
+        */
       optimizeRecFromGameState(
-        nextGameState,
+        chosenGameState,
         newForbiddenHandMap,
         precision
       )
@@ -231,19 +155,25 @@ case class GameV2(
 }
 
 object GameV2 {
-  def computeTricksFromGameStates(
-      gameStates: List[(Card, Player, GameState)]
+  def computeTricksFromGameState(
+      gameState: GameState
   ): Option[List[Tricks]] = {
-    val playedCardsWithPlayers =
-      gameStates.map((card, player, _) => (card, player))
-    val grouped = playedCardsWithPlayers.grouped(4).toList
-    if (grouped.length == 8 && grouped.map(_.length).sum == 32)
-      Some(
-        grouped
-          .map(l => Tricks.fromCards(l, gameStates.head._3.trumpSuit))
-      )
-    else {
-      println("ERROR with Random Game Generation : incomplete or uneven game")
+    if (gameState.isFinal) {
+      val playedCardsWithPlayers =
+        gameState.playedCardsWithPlayers
+      val grouped = playedCardsWithPlayers.grouped(4).toList
+      if (grouped.length == 8 && grouped.map(_.length).sum == 32)
+        Some(
+          grouped.reverse.tail.reverse
+            .map(l => Tricks.fromCards(l, gameState.trumpSuit))
+            .appended(Tricks.fromCards(grouped.last, gameState.trumpSuit, true))
+        )
+      else {
+        println("ERROR with Random Game Generation : the Game is inconsistent")
+        None
+      }
+    } else {
+      println("ERROR with Random Game Generation : the GameState is not FINAL")
       None
     }
 
