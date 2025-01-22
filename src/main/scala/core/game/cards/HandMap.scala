@@ -150,18 +150,31 @@ case class HandMap(
   def genNewHandMapWithForbidden(
       player: Player,
       fHandMap: Map[Player, List[Card]]
-  ): Map[Player, List[Card]] = {
+  ): HandMap = {
     val handSizeMap: Map[Player, Int] =
       toMap.filterNot(_._1.==(player)).map((p, l) => (p, l.length))
 
-    takeOneAndPassToNext(
+    val rest = toMap.filterNot(_._1.==(player)).toList.flatMap(_._2)
+    // println(rest.map(_.getNotation).mkString(","))
+    val resMap = takeOneAndPassToNext(
       player.nextPlayer,
       handSizeMap.map((p, _) => (p, List.empty[Card])),
-      toMap.filter(_._1.==(player)).toList.flatMap(_._2)
+      Random.shuffle(rest)
     )(fHandMap, handSizeMap)
+
+    HandMap(
+      resMap.getOrElse(player1, cards1),
+      resMap.getOrElse(player2, cards2),
+      resMap.getOrElse(player3, cards3),
+      resMap.getOrElse(player4, cards4)
+    )
 
   }
 
+  /** Notes:
+    *   - randomizing seems to double the time taken by the function -> might
+    *     not be necessary
+    */
   def takeOneAndPassToNext(
       player: Player,
       // hMap is the card map of three Players (used for optimizing a player game)
@@ -171,10 +184,20 @@ case class HandMap(
       fHandMap: Map[Player, List[Card]],
       handSizeMap: Map[Player, Int]
   ): Map[Player, List[Card]] = {
+    // println(hMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
+    // println(fHandMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
+    // println(rest.map(_.getNotation).mkString(","))
+    // println(hMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
     if (hMap.toList.forall((p, l) => l.length == handSizeMap(p))) hMap
     else {
       if (hMap(player).length == handSizeMap(player))
-        takeOneAndPassToNext(player.nextPlayer, hMap, rest)
+        takeOneAndPassToNext(
+          if (handSizeMap.isDefinedAt(player.nextPlayer)) player.nextPlayer
+          else player.nextPlayer.nextPlayer,
+          hMap,
+          // Random.shuffle(rest)
+          rest
+        )
       else {
         val forbidden = fHandMap(player)
         val nextStep = rest.collectFirst({
@@ -186,6 +209,7 @@ case class HandMap(
                 player,
                 hMap(player).appended(card)
               ),
+              // Random.shuffle(rest.filterNot(_.==(card)))
               rest.filterNot(_.==(card))
             )
         })
@@ -200,6 +224,7 @@ case class HandMap(
                 hMap,
                 player.nextPlayer
               ),
+              // Random.shuffle(rest)
               rest
             )
       }
@@ -214,18 +239,20 @@ case class HandMap(
       targetedPlayer: Player
   ): Map[Player, List[Card]] =
     if (hMap.isDefinedAt(targetedPlayer)) {
-      hMap(targetedPlayer).collectFirst({
-        case card if !forbiddenCards.contains(card) =>
-          hMap
-            .updated(
-              stealingPlayer,
-              hMap(stealingPlayer).appended(card)
-            )
-            .updated(
-              targetedPlayer,
-              hMap(targetedPlayer).filterNot(_.==(card))
-            )
-      }) match
+      Random
+        .shuffle(hMap(targetedPlayer))
+        .collectFirst({
+          case card if !forbiddenCards.contains(card) =>
+            hMap
+              .updated(
+                stealingPlayer,
+                hMap(stealingPlayer).appended(card)
+              )
+              .updated(
+                targetedPlayer,
+                hMap(targetedPlayer).filterNot(_.==(card))
+              )
+        }) match
         case Some(value) => value
         case None =>
           takeInPlayerHand(

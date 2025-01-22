@@ -1,7 +1,7 @@
 import cats.effect.{ExitCode, IO, IOApp}
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import core.game.{Game, Player, roundTree}
+import core.game.{Game, GameV2, Player, roundTree}
 import core.game.cards.{Card, Deck, DistributePattern, Hand, HandMap, Suit}
 import core.game.cards.DistributePattern.*
 import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
@@ -36,26 +36,55 @@ object Main extends IOApp {
       )*/
 
       hMap = HandMap.fromStrings(
-        "Js, Qs,Ac,Td,Tc,Qd,Jc,9d",
-        "8s,Th,Kd,Qh,8d,7d,7h",
+        "Js,Qs,Ac,Td,Tc,Qd,Jc,9d",
+        "Ks,8s,Th,Kd,Qh,8d,7d,7h",
         "9s,Ts,Ah,Ad,Qc,Jd,9h,7c",
         "As,7s,Kh,Kc,Jh,9c,8h,8c"
       )
 
+      _ <- hMap.printInfo(Spades)
+
+      randomGame = GameV2("aze", hMap, Spades)
+      res = randomGame.generateRandomGameWithFixedHandMap(
+        randomGame.initialGameState,
+        Map(
+          player1 -> List.empty[Card],
+          player2 -> List.empty[Card],
+          player3 -> List.empty[Card],
+          player4 -> List.empty[Card]
+        )
+      )
+
+      tricks = GameV2.computeTricksFromGameStates(res).get
+
+      _ <- IO.println(tricks.map(_.print).mkString("\n"))
+
+      _ <- IO.never
+
       res = hMap.genNewHandMapWithForbidden(
         player1,
         Map(
-          player2 -> Spades.generateCards,
-          player3 -> Nil,
+          player2 -> Spades.generateCards.++(Hearts.generateCards),
+          player3 -> Spades.generateCards,
           player4 -> Nil
         )
       )
 
-      x = res + (player1 -> hMap.getPlayerCards(player1))
+      resL = List.fill(1000000)(
+        hMap.genNewHandMapWithForbidden(
+          player1,
+          Map(
+            player2 -> Spades.generateCards.++(Hearts.generateCards),
+            player3 -> Spades.generateCards,
+            player4 -> Nil
+          )
+        )
+      )
+
+      /*x = res + (player1 -> hMap.getPlayerCards(player1))
       y = HandMap.fromMap(x)
 
-      _ <- y.printInfo
-      _ <- IO.never
+      _ <- IO.println(y)
       /*
       _ <- hMap.printInfo(Spades)
       _ <- hMap.randomExceptPlayer(player1).printInfo(Spades)
@@ -102,7 +131,7 @@ object Main extends IOApp {
         (contract, ev)
       })*/
 
-      /*xx = results
+      xx = results
         .map(res => (res.cardsPlayedOrdered.head.getNotation, res.pointsA))
         .groupBy(_._1)
         .toList

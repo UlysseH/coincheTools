@@ -6,14 +6,14 @@ import core.game.cards.{Card, HandMap, Suit}
 import scala.util.Random
 
 case class GameState(
-    id: String,
+    gameId: String,
     step: Int,
     currentPlayer: Player,
     remainingHandMap: HandMap,
     askedSuit: Suit,
     trumpSuit: Suit,
-    masterPlayer: Player,
-    masterCard: Card
+    masterPlayer: Option[Player],
+    masterCard: Option[Card]
 ) {
   private val playerCards: List[Card] =
     remainingHandMap.getPlayerCards(currentPlayer)
@@ -27,50 +27,105 @@ case class GameState(
   private val playerHasTrumpCard: Boolean = playerTrumpCards.nonEmpty
   private val isTrumpRound: Boolean = askedSuit == trumpSuit
 
-  def isPlayable(card: Card): Option[(List[Card], Boolean)] =
-    (
-      card,
-      isTrumpRound,
-      playerHasAskedColorCard,
-      playerHasTrumpCard,
-      masterPlayer,
-      masterCard
-    ) match {
-      case (card, false, _, _, _, _) if card.suit == askedSuit =>
-        Some((Nil, card.isAbove(masterCard, trumpSuit)))
-      case (_, false, true, _, _, _) => None
-      case (_, false, false, _, _, _)
-          if masterPlayer == currentPlayer.partner =>
-        Some((askedSuit.generateCards, false))
-      case (_, false, false, false, _, _) =>
-        Some((askedSuit.generateCards ++ trumpSuit.generateCards, false))
-      case (card, false, false, true, _, masterCard)
-          if card.isAbove(masterCard, trumpSuit) =>
-        Some((askedSuit.generateCards, true))
-      case (_, false, false, true, _, masterCard) =>
-        Some(
-          (
-            askedSuit.generateCards ++ trumpSuit.generateCards.filterNot(
-              _.isAbove(masterCard, trumpSuit)
-            ),
-            false
-          )
-        )
-      case (_, true, _, false, _, _) => Some((trumpSuit.generateCards, false))
-      case (card, true, _, true, _, _) if card.suit != trumpSuit => None
-      case (card, true, _, true, _, masterCard)
-          if card.isAbove(masterCard, trumpSuit) =>
-        Some((Nil, true))
-      case (_, true, _, true, _, masterCard) =>
-        Some(
-          (
-            trumpSuit.generateCards.filterNot(_.isAbove(masterCard, trumpSuit)),
-            false
-          )
-        )
-    }
+  def computeNextGameState(card: Card, takesLead: Boolean): GameState = {
+    // For when the trick is over since 4 cards have been played
+    if (step % 4 == 0)
+      copy(
+        step = step + 1,
+        currentPlayer =
+          if (takesLead) currentPlayer
+          else masterPlayer.get,
+        remainingHandMap = remainingHandMap,
+        askedSuit = Suit.None,
+        masterPlayer = Some(currentPlayer),
+        masterCard = Some(card)
+      )
+    else
+      // Trick is not complete
+      copy(
+        step = step + 1,
+        currentPlayer = currentPlayer.nextPlayer,
+        remainingHandMap = remainingHandMap,
+        askedSuit =
+          if (askedSuit == Suit.None)
+            card.suit
+          else askedSuit,
+        masterPlayer =
+          if (takesLead) Some(currentPlayer)
+          else masterPlayer,
+        masterCard =
+          if (takesLead) Some(card)
+          else masterCard
+      )
+  }
 
-  def generateRandomPlayableCardWithCorrelated: (List[Card], Boolean) =
+  // TODO write a "fast" version without the negative correlation and compare execution time
+  def isPlayable(card: Card): Option[(Card, List[Card], Boolean)] = {
+    if (askedSuit == Suit.None) Some((card, Nil, true))
+    else
+      // println(s"master ${masterPlayer} with ${masterCard.get.getNotation}")
+      (
+        card,
+        isTrumpRound,
+        playerHasAskedColorCard,
+        playerHasTrumpCard,
+        masterPlayer,
+        masterCard
+      ) match {
+        case (card, false, _, _, _, _) if card.suit == askedSuit =>
+          // println(askedSuit)
+          Some((card, Nil, card.isAbove(masterCard.get, trumpSuit)))
+        case (_, false, true, _, _, _) => None
+        case (_, false, false, _, Some(masterPlayer), _)
+            if masterPlayer == currentPlayer.partner =>
+          Some((card, askedSuit.generateCards, false))
+        case (_, false, false, false, _, _) =>
+          Some(
+            (card, askedSuit.generateCards ++ trumpSuit.generateCards, false)
+          )
+        case (card, false, false, true, _, Some(masterCard))
+            if card.suit
+              .==(trumpSuit) && card.isAbove(masterCard, trumpSuit) =>
+          // println("Hey Yo !")
+          Some((card, askedSuit.generateCards, true))
+        case (_, false, false, true, _, Some(masterCard)) =>
+          // println("Hey Ya !")
+          Some(
+            (
+              card,
+              askedSuit.generateCards ++ trumpSuit.generateCards.filter(
+                _.isAbove(masterCard, trumpSuit)
+              ),
+              false
+            )
+          )
+        case (_, true, _, false, _, _) =>
+          Some((card, trumpSuit.generateCards, false))
+        case (card, true, _, true, _, _) if card.suit != trumpSuit => None
+        case (card, true, _, true, _, Some(masterCard))
+            if card.isAbove(masterCard, trumpSuit) =>
+          Some((card, Nil, true))
+        case (_, true, _, true, _, Some(masterCard))
+            if playerTrumpCards.exists(_.isAbove(masterCard, trumpSuit)) =>
+          None
+        case (_, true, _, true, _, masterCard) =>
+          Some(
+            (
+              card,
+              trumpSuit.generateCards.filter(
+                _.isAbove(masterCard.get, trumpSuit)
+              ),
+              false
+            )
+          )
+      }
+  }
+
+  // TODO : investigate to understand if or not this is done lazily
+  def generateRandomPlayableCardWithCorrelated: (Card, List[Card], Boolean) =
     // unsafe but there should ALWAYS be a playable card if isPlayable is correct
     Random.shuffle(playerCards).flatMap(isPlayable).head
+
+  // This version is by no means lazy ;)
+  def generatePlayableCards: List[(Card, List[Card], Boolean)] = playerCards.flatMap(isPlayable)
 }

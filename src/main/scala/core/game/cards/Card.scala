@@ -10,9 +10,18 @@ case class Card(suit: Suit, height: Height) {
     .filter(_.getTrumpRank.>(height.getTrumpRank))
     .map(h => Card(suit, height))
 
-  def isAbove(card: Card, trumpSuit: Suit): Boolean = if (suit == trumpSuit)
-    height.getTrumpRank > card.height.getTrumpRank
-  else height.getBaseRank > card.height.getBaseRank
+  def isAbove(card: Card, trumpSuit: Suit): Boolean = {
+    /*if (suit == trumpSuit)
+      height.getTrumpRank > card.height.getTrumpRank
+    else height.getBaseRank > card.height.getBaseRank*/
+    if (suit == trumpSuit) {
+      if (card.suit != trumpSuit) true
+      else height.getTrumpRank > card.height.getTrumpRank
+    } else {
+      if (card.suit == trumpSuit) false
+      else height.getBaseRank > card.height.getBaseRank
+    }
+  }
 }
 
 object Card {

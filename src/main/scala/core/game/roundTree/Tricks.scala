@@ -1,6 +1,7 @@
 package core.game.roundTree
 
 import core.game.Player
+import core.game.Player._
 import core.game.cards.{Card, Height, Suit}
 
 case class Tricks(
@@ -99,6 +100,13 @@ object Tricks {
       ),
       playedCards.head._2
     )
+  }
+
+  def computePoints(tricksList: List[Tricks], player: Player): Int = {
+    tricksList
+      .filter(t => (t.wonBy == player) || (t.wonBy == player.partner))
+      .map(_.points)
+      .sum
   }
 }
 
