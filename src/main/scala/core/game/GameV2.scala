@@ -122,7 +122,7 @@ case class GameV2(
               )
               .get
             val points =
-              Tricks.computePoints(tricks, randomizedGameState.currentPlayer)
+              Tricks.computePoints(tricks, gameState.currentPlayer)
 
             points
           })
@@ -134,6 +134,19 @@ case class GameV2(
           )
         })
       }
+
+      println(
+        gameState.playedCardsWithPlayers
+          .map((card, player) => s"${card.getNotation}($player)")
+          .mkString(",")
+      )
+      println(
+        resultsOfSimulationsForEachPlayableCard
+          .map(elt => (elt._1.getNotation, elt._4))
+          .sortBy(_._2)
+          .reverse
+      )
+      println("\n")
 
       val (playedCard, chosenGameState, newForbiddenHandMap) =
         (

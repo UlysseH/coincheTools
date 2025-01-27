@@ -15,6 +15,20 @@ case class Hand(cards: List[Card]) {
       .toList
       .flatMap(_._2.sortBy(_.height.getTrumpRank).map(_.getNotation).reverse)
 
+  def getNotationTrumpOrder(trumpSuit: Suit): String = {
+    val _ = cards
+      .groupBy(_.suit)
+      .toList
+      .flatMap(_._2.sortBy(_.height.getTrumpRank).map(_.getNotation).reverse)
+
+    val trumpCards =
+      cards.filter(_.suit.==(trumpSuit)).sortBy(_.height.getTrumpRank)
+    val otherCards =
+      cards.filterNot(_.suit.!=(trumpSuit)).sortBy(_.height.getBaseRank)
+
+    (otherCards ++ trumpCards).reverse.map(_.getNotation).mkString(",")
+  }
+
   def toStringTrumpOrdered(trumpSuit: Suit) = cards
     .sortBy(card =>
       if (card.suit == trumpSuit) card.height.getTrumpRank + 100

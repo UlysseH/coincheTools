@@ -36,10 +36,10 @@ object Main extends IOApp {
       )*/
 
       hMap = HandMap.fromStrings(
-        "Js,Qs,8s,Ac,Tc,Qd,Jc,9d",
-        "9s,Ks,Th,Kd,Qh,8d,7d,7h",
-        "Ts,Ah,Ad,Td,Qc,Jd,9h,7c",
-        "As,7s,Kh,Kc,Jh,9c,8h,8c"
+        "Js,9s,Qs,8s,Tc,Qd,Jc,9d",
+        "Ks,Ac,Th,Kd,Qh,8d,7h,7d",
+        "Ts,Ad,Ah,Td,Jd,Jh,9h,8h",
+        "As,7s,Kc,Kh,Qc,9c,8c,7c"
       )
 
       _ <- hMap.printInfo(Spades)
@@ -57,10 +57,26 @@ object Main extends IOApp {
         initialForbiddenHandMap
       )*/
 
+      initialGameState = randomGame.initialGameState
+      stepOne = initialGameState.computeNextGameState(
+        Card.fromLitteral("Js"),
+        true
+      )
+      stepTwo = stepOne.computeNextGameState(
+        Card.fromLitteral("Ks"),
+        true
+      )
+
+      playableCardsStepOne = stepOne.generatePlayableCards.map(_._1.getNotation)
+      playableCardsStepTwo = stepTwo.generatePlayableCards.map(_._1.getNotation)
+
+      _ <- IO.println(playableCardsStepOne.mkString(","))
+      _ <- IO.println(playableCardsStepTwo.mkString(","))
+
       res2 = randomGame.optimizeRecFromGameState(
         randomGame.initialGameState,
         initialForbiddenHandMap,
-        1000
+        10000
       )
 
       tricks = GameV2.computeTricksFromGameState(res2).get
@@ -71,94 +87,6 @@ object Main extends IOApp {
         s"[result] team1: ${Tricks.computePoints(tricks, player1)} | team2: ${Tricks
             .computePoints(tricks, player2)}"
       )
-
-      _ <- IO.never
-
-      res = hMap.genNewHandMapWithForbidden(
-        player1,
-        Map(
-          player2 -> Spades.generateCards.++(Hearts.generateCards),
-          player3 -> Spades.generateCards,
-          player4 -> Nil
-        )
-      )
-
-      resL = List.fill(1000000)(
-        hMap.genNewHandMapWithForbidden(
-          player1,
-          Map(
-            player2 -> Spades.generateCards.++(Hearts.generateCards),
-            player3 -> Spades.generateCards,
-            player4 -> Nil
-          )
-        )
-      )
-
-      /*x = res + (player1 -> hMap.getPlayerCards(player1))
-      y = HandMap.fromMap(x)
-
-      _ <- IO.println(y)
-      /*
-      _ <- hMap.printInfo(Spades)
-      _ <- hMap.randomExceptPlayer(player1).printInfo(Spades)
-      _ <- hMap.randomExceptPlayer(player2).printInfo(Spades)*/
-
-      /*results = hMap
-        .optimizeValuesforPlayerHand(player1, 100, 1000)
-        .filter(_.trumpSuit.==(Spades))*/
-
-      handMap = HandMap.randomHand
-
-      _ <- hMap.printInfo(Spades)
-      _ <- IO.println("\n")
-
-      (optGame, optData) = Game
-        .fromHandMap(hMap, Spades)
-        .generateRandomOptGame(10000)
-        .get
-
-      _ <- IO.println(optData.asJson.spaces4)
-
-      // _ <- optGame.printTricks
-      // _ <- optGame.printPoints
-
-      _ <- IO.never
-
-      /*results2 = List
-        .fill(10)(HandMap.randomHand)
-        .map(hMap => {
-          hMap
-        })
-        .map(_.getBestExpectedResultTeamA(10000))*/
-
-      /*evs = Contract.evFromSimulations(results2, teamA)
-
-      _ <- IO.println(
-        evs.mkString("\n")
-      )*/
-
-      /*evs = Contract.values.toList.map(contract => {
-        val outcomes =
-          results.map(res => Contract.pointsMade(res, teamA, contract))
-        val ev = outcomes.sum / outcomes.length
-        (contract, ev)
-      })*/
-
-      xx = results
-        .map(res => (res.cardsPlayedOrdered.head.getNotation, res.pointsA))
-        .groupBy(_._1)
-        .toList
-        .map((x, l) => (x, l.length, l.map(_._2).sum / l.length))
-        .sortBy(_._2)
-        .reverse
-
-      firstCards = results
-        .map(_.cardsPlayedOrdered.head.getNotation)
-        .groupBy(x => x)
-        .toList
-        .map((x, l) => (x, l.length))
-        .sortBy(_._2)
-        .reverse*/
 
       end <- IO(System.currentTimeMillis())
       _ <- IO.println(s"[computed in] ${end - start}ms")
