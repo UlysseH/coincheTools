@@ -79,6 +79,14 @@ object Main extends IOApp {
         10
       )
 
+      _ = List.fill(1000)(
+        randomGame.optimizeRecFromGameState(
+          randomGame.initialGameState,
+          initialForbiddenHandMap,
+          10
+        )
+      )
+
       tricks = GameV2.computeTricksFromGameState(res2).get
 
       _ <- IO.println(tricks.map(_.print).mkString("\n"))

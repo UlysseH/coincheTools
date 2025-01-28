@@ -63,7 +63,6 @@ case class GameV2(
     if (handMap.toMap.toList.map(_._2.length).sum == 0) gameState
     else {
       val currentPlayer = gameState.currentPlayer
-      println(gameState.remainingHandMap.toStringMap)
 
       /** For each playable hand, we generate a number of random games (with
         * different starting HandMap)
