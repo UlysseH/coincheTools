@@ -76,7 +76,7 @@ object Main extends IOApp {
       res2 = randomGame.optimizeRecFromGameState(
         randomGame.initialGameState,
         initialForbiddenHandMap,
-        10000
+        10
       )
 
       tricks = GameV2.computeTricksFromGameState(res2).get

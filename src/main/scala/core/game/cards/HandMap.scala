@@ -184,6 +184,7 @@ case class HandMap(
       fHandMap: Map[Player, List[Card]],
       handSizeMap: Map[Player, Int]
   ): Map[Player, List[Card]] = {
+    //println(handSizeMap)
     // println(hMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
     // println(fHandMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
     // println(rest.map(_.getNotation).mkString(","))
@@ -191,6 +192,7 @@ case class HandMap(
     if (hMap.toList.forall((p, l) => l.length == handSizeMap(p))) hMap
     else {
       if (hMap(player).length == handSizeMap(player))
+        println(player)
         takeOneAndPassToNext(
           if (handSizeMap.isDefinedAt(player.nextPlayer)) player.nextPlayer
           else player.nextPlayer.nextPlayer,
@@ -214,8 +216,10 @@ case class HandMap(
             )
         })
         nextStep match
-          case Some(value) => value
+          case Some(value) => 
+            value
           case None =>
+            println(s"$player: ${rest.map(_.getNotation).mkString(",")}")
             takeOneAndPassToNext(
               player,
               takeInPlayerHand(
