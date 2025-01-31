@@ -33,7 +33,7 @@ metals.sbt
 /.worksheet/
 
 # datasets
-datasets/randomSubsets
+datasets/computedOptGames
 datasets/comprehensiveSubsets
 datasets/tables
 

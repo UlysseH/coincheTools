@@ -1,7 +1,8 @@
 package core.game
 
-import core.game.Player.player1
-import core.game.cards.{Card, HandMap, Suit}
+import core.game.Player.*
+import core.game.cards.Suit.{Clubs, Diamonds, Hearts, Spades}
+import core.game.cards.{Card, Hand, HandMap, Suit}
 import core.game.roundTree.Tricks
 
 case class GameV2(
@@ -57,10 +58,10 @@ case class GameV2(
       gameState: GameState,
       forbiddenHandMap: Map[Player, List[Card]],
       precision: Int
-  ): GameState = {
+  ): Option[GameState] = {
     // println(gameState.step)
     val handMap = gameState.remainingHandMap
-    if (handMap.toMap.toList.map(_._2.length).sum == 0) gameState
+    if (handMap.toMap.toList.map(_._2.length).sum == 0) Some(gameState)
     else {
       val currentPlayer = gameState.currentPlayer
 
@@ -94,48 +95,56 @@ case class GameV2(
             /** Generate a new hand map were opponents hands are reshuffled,
               * taking previous blocking actions into account
               */
-            val newHandMap =
-              handMap
-                .genNewHandMapWithForbidden(
-                  currentPlayer,
-                  newForbiddenHandMap
-                )
+            handMap
+              .genNewHandMapWithForbidden(
+                currentPlayer,
+                newForbiddenHandMap
+              ) match
+              case Some(newHandMap) => {
 
-            /** Then we input the Randomly generated HandMap to the GameState
-              */
-            val randomizedGameState =
-              gameState
-                .copy(
-                  remainingHandMap =
-                    newHandMap.removeCard(playableCard, currentPlayer)
-                )
-                .computeNextGameState(playableCard, takesLead)
+                /** Then we input the Randomly generated HandMap to the
+                  * GameState
+                  */
+                val randomizedGameState =
+                  gameState
+                    .copy(
+                      remainingHandMap =
+                        newHandMap.removeCard(playableCard, currentPlayer)
+                    )
+                    .computeNextGameState(playableCard, takesLead)
 
-            /** Computing the tricks and the points associated
-              */
-            val tricks = GameV2
-              .computeTricksFromGameState(
-                generateRandomGameWithFixedHandMap(
-                  randomizedGameState,
-                  forbiddenHandMap
-                )
-              )
-              .get
-            val points =
-              Tricks.computePoints(tricks, gameState.currentPlayer)
+                /** Computing the tricks and the points associated
+                  */
+                val tricks = GameV2
+                  .computeTricksFromGameState(
+                    generateRandomGameWithFixedHandMap(
+                      randomizedGameState,
+                      forbiddenHandMap
+                    )
+                  )
+                  .get
+                val points =
+                  Tricks.computePoints(tricks, gameState.currentPlayer)
 
-            points
+                Some(points)
+              }
+              case None => None
+
           })
-          (
-            playableCard,
-            nextState,
-            newForbiddenHandMap,
-            randomGamesResults.sum / precision
-          )
+          if (randomGamesResults.exists(_.isEmpty)) None
+          else
+            Some(
+              (
+                playableCard,
+                nextState,
+                newForbiddenHandMap,
+                randomGamesResults.map(_.get).sum / precision
+              )
+            )
         })
       }
 
-      println(
+      /*println(
         gameState.playedCardsWithPlayers
           .map((card, player) => s"${card.getNotation}($player)")
           .mkString(",")
@@ -146,28 +155,38 @@ case class GameV2(
           .sortBy(_._2)
           .reverse
       )
-      println("\n")
+      println("\n")*/
 
-      val (playedCard, chosenGameState, newForbiddenHandMap) =
-        (
-          resultsOfSimulationsForEachPlayableCard.maxBy(_._4)._1,
-          resultsOfSimulationsForEachPlayableCard.maxBy(_._4)._2,
-          resultsOfSimulationsForEachPlayableCard.maxBy(_._4)._3
+      if (resultsOfSimulationsForEachPlayableCard.exists(_.isEmpty)) None
+      else {
+        val (playedCard, chosenGameState, newForbiddenHandMap) =
+          (
+            resultsOfSimulationsForEachPlayableCard.map(_.get).maxBy(_._4)._1,
+            resultsOfSimulationsForEachPlayableCard.map(_.get).maxBy(_._4)._2,
+            resultsOfSimulationsForEachPlayableCard.map(_.get).maxBy(_._4)._3
+          )
+
+        /** We then iterate to next player to play
+          */
+        optimizeRecFromGameState(
+          chosenGameState,
+          newForbiddenHandMap,
+          precision
         )
-
-      /** We then iterate to next player to play
-        */
-      optimizeRecFromGameState(
-        chosenGameState,
-        newForbiddenHandMap,
-        precision
-      )
+      }
     }
 
   }
 }
 
 object GameV2 {
+  val initialForbiddenHandMap = Map(
+    player1 -> List.empty[Card],
+    player2 -> List.empty[Card],
+    player3 -> List.empty[Card],
+    player4 -> List.empty[Card]
+  )
+
   def computeTricksFromGameState(
       gameState: GameState
   ): Option[List[Tricks]] = {
@@ -190,5 +209,123 @@ object GameV2 {
       None
     }
 
+  }
+  case class GameResultStr(
+      id: String,
+      cards1: String,
+      cards2: String,
+      cards3: String,
+      cards4: String,
+      cardsPlayed: String,
+      trumpSuit: String,
+      pointsA: Int,
+      pointsB: Int,
+      precision: Int,
+      algoVersion: Int
+  )
+
+  def randomHandMapAllSuitsToGameResultStr(
+      precision: Int
+  ): List[GameResultStr] = {
+    val games = randomHandMapAllSuits(precision)
+    games.map((hMap, gameState) => {
+      val tricks = computeTricksFromGameState(gameState)
+        .map(tricks => (tricks, gameState.trumpSuit))
+        .get
+        ._1
+      val pointsA = Tricks.computePoints(tricks, player1)
+      val pointsB = Tricks.computePoints(tricks, player2)
+      GameResultStr(
+        gameState.gameId,
+        Hand(hMap.cards1)
+          .toStringTrumpOrdered(gameState.trumpSuit)
+          .mkString(","),
+        Hand(hMap.cards2)
+          .toStringTrumpOrdered(gameState.trumpSuit)
+          .mkString(","),
+        Hand(hMap.cards3)
+          .toStringTrumpOrdered(gameState.trumpSuit)
+          .mkString(","),
+        Hand(hMap.cards4)
+          .toStringTrumpOrdered(gameState.trumpSuit)
+          .mkString(","),
+        gameState.playedCardsWithPlayers.map(_._1.getNotation).mkString(","),
+        gameState.trumpSuit.toString,
+        pointsA,
+        pointsB,
+        precision,
+        algoVersion = 0
+      )
+    })
+  }
+
+  def randomHandMapAllSuits(precision: Int): List[(HandMap, GameState)] = {
+    def uuid = java.util.UUID.randomUUID.toString
+
+    val handMap = HandMap.random
+    val games = List(
+      GameV2(s"$uuid-spades", handMap, Spades),
+      GameV2(s"$uuid-hearts", handMap, Hearts),
+      GameV2(s"$uuid-clubs", handMap, Clubs),
+      GameV2(s"$uuid-diamonds", handMap, Diamonds)
+    )
+    games
+      .map(game =>
+        game.optimizeRecFromGameState(
+          game.initialGameState,
+          initialForbiddenHandMap,
+          precision
+        ) match
+          case Some(value) => Some((handMap, value))
+          case None        => None
+      )
+      .map(x => x)
+      .collect { case Some(value) =>
+        value
+      }
+  }
+
+  def randomGamesAllSuitsRandomHandMapIsolateBest(
+      player: Player,
+      precision: Int
+  ): (Int, Suit) = {
+    def uuid = java.util.UUID.randomUUID.toString
+    val handMap = HandMap.random
+    val games = List(
+      GameV2(s"$uuid-spades", handMap, Spades),
+      GameV2(s"$uuid-hearts", handMap, Hearts),
+      GameV2(s"$uuid-clubs", handMap, Clubs),
+      GameV2(s"$uuid-diamonds", handMap, Diamonds)
+    )
+    val optGames = games
+      .map(game =>
+        game.optimizeRecFromGameState(
+          game.initialGameState,
+          initialForbiddenHandMap,
+          precision
+        )
+      )
+      .collect { case Some(value) =>
+        value
+      }
+    val scoresOrderedDesc = optGames
+      .flatMap(game =>
+        computeTricksFromGameState(game).map(tricks => (tricks, game.trumpSuit))
+      )
+      .map((tricks, suit) =>
+        (tricks, Tricks.computePoints(tricks, player), suit)
+      )
+      .sortBy(_._2)
+      .reverse
+
+    println(handMap.getNotationOrderedByTrumpSuit(scoresOrderedDesc.head._3))
+
+    println(scoresOrderedDesc.head._1.map(_.print).mkString("\n"))
+
+    println(
+      s"[result] team1: ${scoresOrderedDesc.head._2} | team2: ${162 - scoresOrderedDesc.head._2}"
+    )
+
+    (scoresOrderedDesc.head._2, scoresOrderedDesc.head._3)
   }
 }

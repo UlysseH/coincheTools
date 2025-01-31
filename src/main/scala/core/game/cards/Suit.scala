@@ -1,6 +1,6 @@
 package core.game.cards
 
-enum Suit(s: String):
+enum  Suit(s: String):
   def getLiteral: String = s
   def generateCards: List[Card] = Height.values.map(h => Card(this, h)).toList
 

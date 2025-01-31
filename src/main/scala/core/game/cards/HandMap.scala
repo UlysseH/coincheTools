@@ -29,6 +29,27 @@ case class HandMap(
     case Player.player3 => cards3
     case Player.player4 => cards4
 
+  def getNotationOrderedByTrumpSuit(trumpSuit: Suit): String = toList
+    .map((s, l) =>
+      (
+        s,
+        Hand(
+          l
+            .sortBy(card =>
+              if (card.suit == trumpSuit) card.height.getTrumpRank + 100
+              else card.height.getBaseRank
+            )
+            .reverse
+        )
+      )
+    )
+    .map((p, h) =>
+      s"$p : ${h.cards.map(_.getNotation).mkString(",")} (${h
+          .countPoints(Suit.Spades)}pts)"
+    )
+    .prepended(s"[info] p1 took with $trumpSuit")
+    .mkString("\n")
+
   def removeCard(card: Card, player: Player): HandMap = player match
     case Player.player1 => this.copy(cards1 = cards1.filterNot(_.==(card)))
     case Player.player2 => this.copy(cards2 = cards2.filterNot(_.==(card)))
@@ -149,27 +170,40 @@ case class HandMap(
 
   def genNewHandMapWithForbidden(
       player: Player,
-      fHandMap: Map[Player, List[Card]]
-  ): HandMap = {
+      fHandMap: Map[Player, List[Card]],
+      step: Int = 0
+  ): Option[HandMap] = {
     val handSizeMap: Map[Player, Int] =
       toMap.filterNot(_._1.==(player)).map((p, l) => (p, l.length))
 
     val rest =
       Random.shuffle(toMap.filterNot(_._1.==(player)).toList.flatMap(_._2))
     // println(rest.map(_.getNotation).mkString(","))
-    val resMap = takeOneAndPassToNextV2(
+
+    takeOneAndPassToNextV2(
       player.nextPlayer,
       handSizeMap.map((p, _) => (p, List.empty[Card])),
       Random.shuffle(rest)
-    )(fHandMap, handSizeMap)
-
-    HandMap(
-      resMap.getOrElse(player1, cards1),
-      resMap.getOrElse(player2, cards2),
-      resMap.getOrElse(player3, cards3),
-      resMap.getOrElse(player4, cards4)
-    )
-
+    )(fHandMap, handSizeMap) match
+      case Some(value) => {
+        val resMap = HandMap(
+          value._1.getOrElse(player1, cards1),
+          value._1.getOrElse(player2, cards2),
+          value._1.getOrElse(player3, cards3),
+          value._1.getOrElse(player4, cards4)
+        )
+        // println(s"[info] drafted in $numSteps steps")
+        Some(resMap)
+      }
+      case None => {
+        if (step <= 100) genNewHandMapWithForbidden(player, fHandMap, step + 1)
+        else {
+          println(
+            "[failed] to draft in less than 100 step -> retry from beginning"
+          )
+          None
+        }
+      }
   }
 
   /** The idea is for each player to pick an allowed card in the rest pile, and
@@ -180,79 +214,89 @@ case class HandMap(
       player: Player,
       // hMap is the card map of three Players (used for optimizing a player game)
       hMap: Map[Player, List[Card]],
-      rest: List[Card]
+      rest: List[Card],
+      step: Int = 0
   )(implicit
       fHandMap: Map[Player, List[Card]],
       handSizeMap: Map[Player, Int]
-  ): Map[Player, List[Card]] = {
+  ): Option[(Map[Player, List[Card]], Int)] = {
 
     /** If all player have the right number of cards in their respective hands,
       * return the result
       */
-    if (hMap.toList.forall((p, l) => l.length == handSizeMap(p))) hMap
+    if (hMap.toList.forall((p, l) => l.length == handSizeMap(p)))
+      Some((hMap, step))
     else {
-      val forbidden = fHandMap(player)
-      val optCard = rest.collectFirst({
-        case card if !forbidden.contains(card) => card
-      })
+      if (step >= 100) None
+      else {
+        val forbidden = fHandMap(player)
+        val optCard = rest.collectFirst({
+          case card if !forbidden.contains(card) => card
+        })
 
-      /** since one player has a fixed hand (current player whose turn it is),
-        * we might skip one next player
-        */
-      val nextPlayer =
-        if (handSizeMap.isDefinedAt(player.nextPlayer)) player.nextPlayer
-        else player.nextPlayer.nextPlayer
-
-      (hMap(player).length == handSizeMap(player), optCard) match {
-        /** Most common case : player hand is not full yet and at least one card
-          * is matching allowed cards
+        /** since one player has a fixed hand (current player whose turn it is),
+          * we might skip one next player
           */
-        case (false, Some(card)) =>
-          takeOneAndPassToNextV2(
-            nextPlayer,
-            hMap.updated(player, hMap(player).appended(card)),
-            rest.filterNot(_.==(card))
-          )
+        val nextPlayer =
+          if (handSizeMap.isDefinedAt(player.nextPlayer)) player.nextPlayer
+          else player.nextPlayer.nextPlayer
 
-        /** player hand is full but there is at least one card in the rest that
-          * matches -> exchange it with one card in hand
-          */
-        case (true, Some(card)) =>
-          Random.shuffle(hMap(player)).headOption match
-            case Some(value) =>
-              takeOneAndPassToNextV2(
-                nextPlayer,
-                hMap.updated(
-                  player,
-                  hMap(player).filterNot(_.==(value)).appended(card)
-                ),
-                rest.filterNot(_.==(card)).appended(value)
-              )
+        (hMap(player).length == handSizeMap(player), optCard) match {
+          /** Most common case : player hand is not full yet and at least one
+            * card is matching allowed cards
+            */
+          case (false, Some(card)) =>
+            takeOneAndPassToNextV2(
+              nextPlayer,
+              hMap.updated(player, hMap(player).appended(card)),
+              rest.filterNot(_.==(card)),
+              step + 1
+            )
 
-            /** At the end of the game, expected hand size might be 0, in this
-              * case we must skip to next player
-              */
-            case None => takeOneAndPassToNextV2(nextPlayer, hMap, rest)
+          /** player hand is full but there is at least one card in the rest
+            * that matches -> exchange it with one card in hand
+            */
+          case (true, Some(card)) =>
+            Random.shuffle(hMap(player)).headOption match
+              case Some(value) =>
+                takeOneAndPassToNextV2(
+                  nextPlayer,
+                  hMap.updated(
+                    player,
+                    hMap(player).filterNot(_.==(value)).appended(card)
+                  ),
+                  rest.filterNot(_.==(card)).appended(value),
+                  step + 1
+                )
 
-        /** If no card matches for player, move to next (since we exchange
-          * cards, next turn player might find a suitable card)
-          */
-        case (_, None) =>
-          takeOneAndPassToNextV2(
-            nextPlayer,
-            hMap,
-            rest
-          )
+              /** At the end of the game, expected hand size might be 0, in this
+                * case we must skip to next player
+                */
+              case None =>
+                takeOneAndPassToNextV2(nextPlayer, hMap, rest, step + 1)
+
+          /** If no card matches for player, move to next (since we exchange
+            * cards, next turn player might find a suitable card)
+            */
+          case (_, None) =>
+            takeOneAndPassToNextV2(
+              nextPlayer,
+              hMap,
+              rest,
+              step + 1
+            )
+        }
       }
+
     }
   }
 
-  /** The idea is for each player to pick an allowed card in the rest pile, and
-    * pass it to the next player If player cannot pick a card from the rest,
-    * s.he will take it from an other player hand Notes:
-    *   - randomizing seems to double the time taken by the function -> might
-    *     not be necessary
-    */
+  /*/** The idea is for each player to pick an allowed card in the rest pile, and
+   * pass it to the next player If player cannot pick a card from the rest,
+   * s.he will take it from an other player hand Notes:
+   *   - randomizing seems to double the time taken by the function -> might
+   *     not be necessary
+   */
   def takeOneAndPassToNext(
       player: Player,
       // hMap is the card map of three Players (used for optimizing a player game)
@@ -269,21 +313,21 @@ case class HandMap(
     // println(hMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
 
     /** If all player have the right number of cards in their respective hands,
-      * return the result
-      */
+   * return the result
+   */
     if (hMap.toList.forall((p, l) => l.length == handSizeMap(p))) hMap
     else {
 
       /** Even if the player has enough cards in his hand, if s.he can take a
-        * new one, exchange it with a card in his/her hand to avoid blocking
-        */
+   * new one, exchange it with a card in his/her hand to avoid blocking
+   */
       if (hMap(player).length == handSizeMap(player))
         println(player)
 
         takeOneAndPassToNext(
           /** since one player has a fixed hand (current player whose turn it
-            * is), we might skip one next player
-            */
+   * is), we might skip one next player
+   */
           if (handSizeMap.isDefinedAt(player.nextPlayer)) player.nextPlayer
           else player.nextPlayer.nextPlayer,
           hMap,
@@ -327,8 +371,8 @@ case class HandMap(
   }
 
   /** If a player needs a card but cannot find a suitable one in the rest, s.he
-    * will look for it in another player hand
-    */
+   * will look for it in another player hand
+   */
   @tailrec
   final def takeInPlayerHand(
       stealingPlayer: Player,
@@ -368,14 +412,14 @@ case class HandMap(
           )
     } else
       /** This is necessary if the targeted player is the fixed
-        * (current/playing) player
-        */
+   * (current/playing) player
+   */
       takeInPlayerHand(
         stealingPlayer,
         forbiddenCards,
         hMap,
         targetedPlayer.nextPlayer
-      )
+      )*/
 }
 
 object HandMap {
@@ -392,7 +436,7 @@ object HandMap {
       s4.split(",").toList.map(s => Card.fromLitteral(s))
     )
 
-  def randomHand: HandMap = {
+  def random: HandMap = {
     val shuffledDeck = Deck.shuffled
     HandMap(
       shuffledDeck.cards.slice(0, 8),

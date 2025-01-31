@@ -10,6 +10,8 @@ import core.game.Player.*
 import core.game.Team.teamA
 import core.game.bidding.Contract
 import core.game.roundTree.{GameTreeNode, Tricks}
+import fs2.io.file.{Files, Path}
+import fs2.text
 
 import scala.math.BigDecimal.RoundingMode
 
@@ -18,83 +20,41 @@ object Main extends IOApp {
     for {
       start <- IO(System.currentTimeMillis())
 
-      shuffledDeck = Deck.shuffled
+      // games = GameV2.randomHandMapAllSuitsToGameResultStr(1000)
 
-      game = Game
-        .init(
-          Suit.None,
-          shuffledDeck,
-          TwoThreeThree
+      computeStream = fs2.Stream
+        .range(1, 20000)
+        .covary[IO]
+        .debug()
+        .chunkN(4)
+        .parEvalMap(10)(chunk => {
+          IO(
+            fs2.Stream
+              .emits(
+                chunk
+                  .map(_ => GameV2.randomHandMapAllSuitsToGameResultStr(1000))
+                  .toList
+                  .flatten
+              )
+              .covary[IO]
+          )
+        })
+        .flatten
+        .map(x => x)
+        .map(gameResult => gameResult.asJson.toString)
+        .debug()
+        .intersperse("\n")
+        .through(text.utf8.encode)
+        .through(
+          Files[IO]
+            .writeAll(
+              Path(
+                s"datasets/computedOptGames/$start.json"
+              )
+            )
         )
-        .copy(trumpSuit = Spades)
 
-      /*hMap = HandMap.fromStrings(
-        "Js,Qs,Ac,Td,Tc,Qd,Jc,9d",
-        "Ks,8s,Th,Kd,Qh,8d,7d,7h",
-        "9s,Ts,Ah,Ad,Qc,Jd,9h,7c",
-        "As,7s,Kh,Kc,Jh,9c,8h,8c"
-      )*/
-
-      hMap = HandMap.fromStrings(
-        "Js,9s,Qs,8s,Tc,Qd,Jc,9d",
-        "Ks,Ac,Th,Kd,Qh,8d,7h,7d",
-        "Ts,Ad,Ah,Td,Jd,Jh,9h,8h",
-        "As,7s,Kc,Kh,Qc,9c,8c,7c"
-      )
-
-      _ <- hMap.printInfo(Spades)
-
-      initialForbiddenHandMap = Map(
-        player1 -> List.empty[Card],
-        player2 -> List.empty[Card],
-        player3 -> List.empty[Card],
-        player4 -> List.empty[Card]
-      )
-
-      randomGame = GameV2("aze", hMap, Spades)
-      /* res = randomGame.generateRandomGameWithFixedHandMap(
-        randomGame.initialGameState,
-        initialForbiddenHandMap
-      )*/
-
-      initialGameState = randomGame.initialGameState
-      stepOne = initialGameState.computeNextGameState(
-        Card.fromLitteral("Js"),
-        true
-      )
-      stepTwo = stepOne.computeNextGameState(
-        Card.fromLitteral("Ks"),
-        true
-      )
-
-      playableCardsStepOne = stepOne.generatePlayableCards.map(_._1.getNotation)
-      playableCardsStepTwo = stepTwo.generatePlayableCards.map(_._1.getNotation)
-
-      _ <- IO.println(playableCardsStepOne.mkString(","))
-      _ <- IO.println(playableCardsStepTwo.mkString(","))
-
-      res2 = randomGame.optimizeRecFromGameState(
-        randomGame.initialGameState,
-        initialForbiddenHandMap,
-        10
-      )
-
-      _ = List.fill(1000)(
-        randomGame.optimizeRecFromGameState(
-          randomGame.initialGameState,
-          initialForbiddenHandMap,
-          10
-        )
-      )
-
-      tricks = GameV2.computeTricksFromGameState(res2).get
-
-      _ <- IO.println(tricks.map(_.print).mkString("\n"))
-
-      _ <- IO.println(
-        s"[result] team1: ${Tricks.computePoints(tricks, player1)} | team2: ${Tricks
-            .computePoints(tricks, player2)}"
-      )
+      _ <- computeStream.compile.drain
 
       end <- IO(System.currentTimeMillis())
       _ <- IO.println(s"[computed in] ${end - start}ms")
