@@ -4,7 +4,7 @@ package core.game.cards.neutral
  * variance to render notions such as "9 second", "10 second"
  */
 enum SuitNeutral(s: String):
-  def getLitteral: String = s
+  def getLiteral: String = s
   
   case Trump extends SuitNeutral("t")
   case First extends SuitNeutral("x")

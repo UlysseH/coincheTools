@@ -1,6 +1,6 @@
 package core.game.cards.neutral
 
-import core.game.cards.neutral.SuitNeutral.{First, Trump}
+import core.game.cards.neutral.SuitNeutral.{First, Second, Trump}
 import core.game.cards.{Card, Hand, Suit}
 
 import scala.annotation.tailrec
@@ -23,22 +23,46 @@ object HandNeutral {
     )
     .reverse
 
-  def fromHand(hand: Hand, trumpSuit: Suit) = {
+  def fromHand(hand: Hand, trumpSuit: Suit): HandNeutral = {
     val cards = hand.cards
 
     val trumpCardsNeutral = cards
       .filter(_.suit.==(trumpSuit))
       .map(card => CardNeutral(Trump, card.height))
+      .sortBy(_.height.getTrumpRank)
+      .reverse
     val restGroupedBySuit = cards
       .filterNot(_.suit.==(trumpSuit))
       .groupBy(_.suit)
       .toList
       .map((_, cards) => cards.sortBy(_.height.getBaseRank).reverse)
     val restSorted = sortColors(restGroupedBySuit)
-    HandNeutral(
+    /*HandNeutral(
       trumpCardsNeutral ++ restGroupedBySuit.
         .getOrElse(Nil)
         .map(card => CardNeutral(First, card.height))
-    )
+    )*/
+    restSorted.length match
+      case 0 => HandNeutral(trumpCardsNeutral)
+      case 1 =>
+        HandNeutral(
+          trumpCardsNeutral ++ restSorted.head.map(card =>
+            CardNeutral(First, card.height)
+          )
+        )
+      case 2 =>
+        HandNeutral(
+          trumpCardsNeutral ++ restSorted.head.map(card =>
+            CardNeutral(First, card.height)
+          ) ++ restSorted(1).map(card => CardNeutral(Second, card.height))
+        )
+      case 3 =>
+        HandNeutral(
+          trumpCardsNeutral ++ restSorted.head.map(card =>
+            CardNeutral(First, card.height)
+          ) ++ restSorted(1).map(card =>
+            CardNeutral(Second, card.height)
+          ) ++ restSorted(2).map(card => CardNeutral(Second, card.height))
+        )
   }
 }
