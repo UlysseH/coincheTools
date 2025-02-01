@@ -1,11 +1,28 @@
 package core.game.cards.neutral
 
-import core.game.cards.neutral.SuitNeutral.{First, Second, Trump}
+import core.game.cards.neutral.SuitNeutral.{First, Second, Third, Trump}
 import core.game.cards.{Card, Hand, Suit}
 
 import scala.annotation.tailrec
 
-case class HandNeutral(cards: List[CardNeutral]) {}
+// todo: add the neutral notation mapping (to compare with other players hand
+case class HandNeutral(cards: List[CardNeutral]) {
+  override def toString: String = cards.map(_.getNotation).mkString(",")
+
+  def pointsInHand: Int = cards
+    .map(card =>
+      if (card.suitNeutral.==(Trump)) card.height.getTrumpPoints
+      else card.height.getBasePoints
+    )
+    .sum
+
+  /**
+   *  [(J, 9, A, X), (A, T, X), (X)]
+   *  [(J, X, X), (A, X), (A), (X, X)]
+   *  ...
+   */
+
+}
 
 object HandNeutral {
 
@@ -62,7 +79,7 @@ object HandNeutral {
             CardNeutral(First, card.height)
           ) ++ restSorted(1).map(card =>
             CardNeutral(Second, card.height)
-          ) ++ restSorted(2).map(card => CardNeutral(Second, card.height))
+          ) ++ restSorted(2).map(card => CardNeutral(Third, card.height))
         )
   }
 }

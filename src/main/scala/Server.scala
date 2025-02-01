@@ -1,6 +1,7 @@
 import cats.effect.{ExitCode, IO, IOApp}
 import endpoints.GameOptimizeEndpoint
-import org.http4s.blaze.server.BlazeServerBuilder
+import org.http4s.ember.server._
+import com.comcast.ip4s._
 import org.http4s.server.Router
 import org.http4s.server.middleware.Logger
 import org.http4s.implicits.*
@@ -15,11 +16,15 @@ object Server extends IOApp {
           Router(
             "/api" -> GameOptimizeEndpoint.endpoints
           ).orNotFound
-        BlazeServerBuilder[IO](global)
-          .bindHttp(8080, "127.0.0.1")
+        EmberServerBuilder
+          .default[IO]
+          .withHost(ipv4"127.0.0.1")
+          .withPort(port"8080")
           .withHttpApp(Logger.httpApp[IO](true, true)(httpApp))
-          .serve
-      }.drain.compile.drain.as(ExitCode.Success)
+          .build
+          .use(_ => IO.never)
+          .as(ExitCode.Success)
+      }
     } yield exitCode
   }
 }

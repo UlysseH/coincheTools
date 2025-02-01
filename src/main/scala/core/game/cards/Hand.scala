@@ -15,7 +15,7 @@ case class Hand(cards: List[Card]) {
       .toList
       .flatMap(_._2.sortBy(_.height.getTrumpRank).map(_.getNotation).reverse)
 
-  def toStringTrumpOrdered(trumpSuit: Suit) = cards
+  def toStringTrumpOrdered(trumpSuit: Suit): List[String] = cards
     .sortBy(card =>
       if (card.suit == trumpSuit) card.height.getTrumpRank + 100
       else card.height.getBaseRank

@@ -1,8 +1,10 @@
 import cats.effect.{ExitCode, IO, IOApp}
 import core.game.cards.Suit.Hearts
-import core.game.cards.{Card, Hand}
+import core.game.cards.{Card, Hand, Suit}
 import core.game.cards.neutral.HandNeutral
 import data.DatasetReaders
+import data.analysis.StatsByNeutralHand
+import data.reformating.ReformatingGameResults
 
 object PerformanceTests extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
@@ -31,9 +33,51 @@ object PerformanceTests extends IOApp {
 
       _ <- IO.println(handNeutral.cards.map(_.getNotation).mkString(","))*/
 
-      stream = DatasetReaders.readComputedOptGames
+      stream = DatasetReaders.readComputedOptGames // .take(1000)
 
       _ <- stream.compile.drain
+
+      res <- ReformatingGameResults.azerty(stream)
+
+      _ <- IO.println(res.mkString("\n"))
+
+      _ <- IO.never
+
+      analysisStream = StatsByNeutralHand.fromDatasetStream(stream)
+
+      /*res <- analysisStream.compile.toList
+        .map(_.sortBy(_._1.pointsInHand))
+        .map(
+          _.map((h, res) =>
+            s"${h.toString}: ${res.pointsA}pts (${h.pointsInHand}pts in hand)(" +
+              s"cards2: ${HandNeutral.fromHand(
+                  Hand.fromString(res.cards2),
+                  Suit.fromString(res.trumpSuit)
+                )}, cards3: ${HandNeutral.fromHand(
+                  Hand.fromString(res.cards3),
+                  Suit.fromString(res.trumpSuit)
+                )}, cards4: ${HandNeutral.fromHand(
+                  Hand.fromString(res.cards4),
+                  Suit.fromString(res.trumpSuit)
+                )})"
+          )
+        )*/
+
+      // _ <- IO.println(res.mkString("\n"))
+
+      // _ <- StatsByNeutralHand.pointsPointsInHandWrite(stream)
+
+      dataL <- stream.compile.toList
+      res = dataL
+        .groupBy(_.id.split("-").reverse.tail)
+        .map((key, l) => l.length)
+        .toList
+        .groupBy(x => x)
+        .map((i, l) => (i, l.length))
+        .toList
+        .sortBy(_._1)
+
+      _ <- IO.println(res.mkString("\n"))
 
       end <- IO(System.currentTimeMillis())
       _ <- IO.println(s"[computed in] ${end - start}ms")

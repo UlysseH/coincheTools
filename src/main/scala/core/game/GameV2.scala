@@ -260,7 +260,7 @@ object GameV2 {
   }
 
   def randomHandMapAllSuits(precision: Int): List[(HandMap, GameState)] = {
-    def uuid = java.util.UUID.randomUUID.toString
+    val uuid = java.util.UUID.randomUUID.toString
 
     val handMap = HandMap.random
     val games = List(

@@ -1,6 +1,6 @@
 package core.game.cards
 
-enum  Suit(s: String):
+enum Suit(s: String):
   def getLiteral: String = s
   def generateCards: List[Card] = Height.values.map(h => Card(this, h)).toList
 
@@ -12,8 +12,12 @@ enum  Suit(s: String):
 
 object Suit {
   def fromString(s: String) = s match
-    case "c" => Clubs
-    case "h" => Hearts
-    case "s" => Spades
-    case "d" => Diamonds
+    case "c"        => Clubs
+    case "h"        => Hearts
+    case "s"        => Spades
+    case "d"        => Diamonds
+    case "Clubs"    => Clubs
+    case "Hearts"   => Hearts
+    case "Spades"   => Spades
+    case "Diamonds" => Diamonds
 }
