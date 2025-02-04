@@ -40,13 +40,35 @@ object Contract {
         else (result.pointsA == 0)
   }
 
+  def pointsByContract(points: Int, contract: Contract): Int = contract match
+    case Contract.Eighty        => if (points >= 82) 80 else -160
+    case Contract.Ninety        => if (points >= 90) 90 else -160
+    case Contract.Hundred       => if (points >= 100) 100 else -160
+    case Contract.HundredTen    => if (points >= 110) 110 else -160
+    case Contract.HundredTwenty => if (points >= 120) 120 else -160
+    case Contract.HundredThirty => if (points >= 130) 130 else -160
+    case Contract.HundredFourty => if (points >= 140) 140 else -160
+    case Contract.HundredFifty  => if (points >= 150) 150 else -160
+    case Contract.HundredSixty  => if (points >= 160) 160 else -160
+    case Contract.Capot         => if (points == 162) 250 else -160
+
+  def pointsByContractSummary(pointsL: List[Int]): List[String] =
+    Contract.values.toList.map(contract =>
+      s"[average] ${contract.toString}: ${pointsL
+          .map(points => pointsByContract(points, contract))
+          .sum / pointsL.length}"
+    )
+
   def pointsMade(
       result: Result,
       team: Team,
       contract: Contract
   ): Int = if (isMet(result, team, contract)) contract.pointsMade else -160
 
-  def evFromSimulations(results: List[Result], team: Team): List[(Contract, Int)] =
+  def evFromSimulations(
+      results: List[Result],
+      team: Team
+  ): List[(Contract, Int)] =
     Contract.values.toList.map(contract => {
       val outcomes =
         results.map(res => Contract.pointsMade(res, teamA, contract))

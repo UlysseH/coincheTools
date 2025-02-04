@@ -29,7 +29,7 @@ case class HandMap(
     case Player.player3 => cards3
     case Player.player4 => cards4
 
-  def getNotationOrderedByTrumpSuit(trumpSuit: Suit): String = toList
+  def toStringOrderedByTrumpSuit(trumpSuit: Suit): String = toList
     .map((s, l) =>
       (
         s,
@@ -44,7 +44,7 @@ case class HandMap(
       )
     )
     .map((p, h) =>
-      s"$p : ${h.cards.map(_.getNotation).mkString(",")} (${h
+      s"$p : ${h.cards.map(_.toString).mkString(",")} (${h
           .countPoints(Suit.Spades)}pts)"
     )
     .prepended(s"[info] p1 took with $trumpSuit")
@@ -57,10 +57,10 @@ case class HandMap(
     case Player.player4 => this.copy(cards4 = cards4.filterNot(_.==(card)))
 
   def toStringMap: Map[String, String] = Map(
-    "cards1" -> cards1.map(_.getNotation).mkString(","),
-    "cards2" -> cards2.map(_.getNotation).mkString(","),
-    "cards3" -> cards3.map(_.getNotation).mkString(","),
-    "cards4" -> cards4.map(_.getNotation).mkString(",")
+    "cards1" -> cards1.map(_.toString).mkString(","),
+    "cards2" -> cards2.map(_.toString).mkString(","),
+    "cards3" -> cards3.map(_.toString).mkString(","),
+    "cards4" -> cards4.map(_.toString).mkString(",")
   )
 
   def printInfo(trumpSuit: Suit): IO[Unit] =
@@ -81,7 +81,7 @@ case class HandMap(
             )
           )
           .map((p, h) =>
-            s"$p : ${h.cards.map(_.getNotation).mkString(",")} (${h
+            s"$p : ${h.cards.map(_.toString).mkString(",")} (${h
                 .countPoints(Suit.Spades)}pts)"
           )
           .mkString("\n")
@@ -178,7 +178,7 @@ case class HandMap(
 
     val rest =
       Random.shuffle(toMap.filterNot(_._1.==(player)).toList.flatMap(_._2))
-    // println(rest.map(_.getNotation).mkString(","))
+    // println(rest.map(_.toString).mkString(","))
 
     takeOneAndPassToNextV2(
       player.nextPlayer,
@@ -307,10 +307,10 @@ case class HandMap(
       handSizeMap: Map[Player, Int]
   ): Map[Player, List[Card]] = {
     // println(handSizeMap)
-    // println(hMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
-    // println(fHandMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
-    // println(rest.map(_.getNotation).mkString(","))
-    // println(hMap.map((p, l) => (p, l.map(_.getNotation).mkString(","))))
+    // println(hMap.map((p, l) => (p, l.map(_.toString).mkString(","))))
+    // println(fHandMap.map((p, l) => (p, l.map(_.toString).mkString(","))))
+    // println(rest.map(_.toString).mkString(","))
+    // println(hMap.map((p, l) => (p, l.map(_.toString).mkString(","))))
 
     /** If all player have the right number of cards in their respective hands,
    * return the result
@@ -353,7 +353,7 @@ case class HandMap(
           case Some(value) =>
             value
           case None =>
-            println(s"$player: ${rest.map(_.getNotation).mkString(",")}")
+            println(s"$player: ${rest.map(_.toString).mkString(",")}")
             takeOneAndPassToNext(
               if (handSizeMap.isDefinedAt(player.nextPlayer)) player.nextPlayer
               else player.nextPlayer.nextPlayer,
@@ -386,9 +386,9 @@ case class HandMap(
         .collectFirst({
           case card if !forbiddenCards.contains(card) =>
             println(
-              s"$stealingPlayer stole ${card.getNotation} to $targetedPlayer ($targetedPlayer has ${hMap(
+              s"$stealingPlayer stole ${card.toString} to $targetedPlayer ($targetedPlayer has ${hMap(
                   targetedPlayer
-                ).map(_.getNotation).mkString(",")})"
+                ).map(_.toString).mkString(",")})"
             )
             hMap
               .updated(

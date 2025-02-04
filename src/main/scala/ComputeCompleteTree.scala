@@ -42,19 +42,19 @@ object ComputeCompleteTree extends IOApp {
       _ <- IO.println("\n[info] players/cards")
       _ <- IO.println(
         handMap.toList
-          .map((p, h) => s"$p : ${h.cards.map(_.getNotation).mkString(",")}")
+          .map((p, h) => s"$p : ${h.cards.map(_.toString).mkString(",")}")
           .mkString("\n")
       )
 
       _ <- IO.println("\n[compute] leaves")
       _ <- IO.println(
-        tree.getLeaves.map(_.map(_.getNotation).mkString(",")).mkString("\n")
+        tree.getLeaves.map(_.map(_.toString).mkString(",")).mkString("\n")
       )
 
       _ <- IO.println("\n[compute] number of leaves")
       _ <- IO.println(tree.countLeaf)
 
-      // _ <- IO.println(draw.getNotationTrumpOrder)
+      // _ <- IO.println(draw.toStringTrumpOrder)
 
       end <- IO(System.currentTimeMillis())
       _ <- IO.println(s"[computed in] ${end - start}ms")

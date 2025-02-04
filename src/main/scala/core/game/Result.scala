@@ -15,24 +15,24 @@ case class Result(
     tricks: List[Tricks]
 ) {
   def toResultStr: ResultStr = ResultStr(
-    startingHandMap.cards1.map(_.getNotation).mkString(","),
-    startingHandMap.cards2.map(_.getNotation).mkString(","),
-    startingHandMap.cards3.map(_.getNotation).mkString(","),
-    startingHandMap.cards4.map(_.getNotation).mkString(","),
+    startingHandMap.cards1.map(_.toString).mkString(","),
+    startingHandMap.cards2.map(_.toString).mkString(","),
+    startingHandMap.cards3.map(_.toString).mkString(","),
+    startingHandMap.cards4.map(_.toString).mkString(","),
     trumpSuit.getLiteral,
     pointsA.toString,
     pointsB.toString,
-    cardsPlayedOrdered.map(_.getNotation).mkString(",")
+    cardsPlayedOrdered.map(_.toString).mkString(",")
   )
   def toMap: Map[String, String] = Map(
-    "cards1" -> startingHandMap.cards1.map(_.getNotation).mkString(","),
-    "cards2" -> startingHandMap.cards2.map(_.getNotation).mkString(","),
-    "cards3" -> startingHandMap.cards3.map(_.getNotation).mkString(","),
-    "cards4" -> startingHandMap.cards4.map(_.getNotation).mkString(","),
+    "cards1" -> startingHandMap.cards1.map(_.toString).mkString(","),
+    "cards2" -> startingHandMap.cards2.map(_.toString).mkString(","),
+    "cards3" -> startingHandMap.cards3.map(_.toString).mkString(","),
+    "cards4" -> startingHandMap.cards4.map(_.toString).mkString(","),
     "trumpSuit" -> trumpSuit.getLiteral,
     "pointsA" -> pointsA.toString,
     "pointsB" -> pointsB.toString,
-    "cardsPlayedOrdered" -> cardsPlayedOrdered.map(_.getNotation).mkString(",")
+    "cardsPlayedOrdered" -> cardsPlayedOrdered.map(_.toString).mkString(",")
   )
 
   def toJson: Json = toMap.asJson

@@ -9,7 +9,12 @@ import cats.implicits.*
 import core.game.Player.*
 import core.game.Team.teamA
 import core.game.bidding.Contract
+import core.game.cards.neutral.HandNeutral
+import core.game.result.ResultAllSuits
 import core.game.roundTree.{GameTreeNode, Tricks}
+import data.DatasetReaders
+import data.compute.RandomOptGameComputing
+import data.transform.{ToNeutralHandPoints, ToResultAllSuits}
 import fs2.io.file.{Files, Path}
 import fs2.text
 
@@ -20,41 +25,73 @@ object Main extends IOApp {
     for {
       start <- IO(System.currentTimeMillis())
 
-      // games = GameV2.randomHandMapAllSuitsToGameResultStr(1000)
+      // _ <- RandomOptGameComputing.computeAndPersistN(10, 100, start, 1000)
 
-      computeStream = fs2.Stream
-        .range(1, 20000)
-        .covary[IO]
-        .debug()
-        .chunkN(4)
-        .parEvalMap(10)(chunk => {
-          IO(
-            fs2.Stream
-              .emits(
-                chunk
-                  .map(_ => GameV2.randomHandMapAllSuitsToGameResultStr(1000))
-                  .toList
-                  .flatten
+      /*l <- DatasetReaders
+        .readResultAllSuits("v01")
+        .filter(_.pointsMap.size.==(4))
+        /*.map(res =>
+          res.pointsMap.toList
+            .map((suit, pts) => (res.hand.countPoints(suit), pts))
+            .sortBy(_._1)
+            .reverse
+            .head
+            ._2
+        )*/
+        .map(res => res.pointsMap.toList.map(_._2).max)
+        .compile
+        .toList
+
+      res = Contract.pointsByContractSummary(l)
+
+      _ <- IO.println(res.mkString("\n"))
+       */
+
+      /*dataL <- DatasetReaders
+        .readNeutralHandPoints("v01")
+        // .filter(_._1.trumps.toString().==("Jt,9t"))
+        // .map((hand, pts) => (hand.trumps, pts))
+        .compile
+        .toList*/
+
+      /*res = dataL
+        .groupBy(_._1.cards.length)
+        .map((hand, l) => {
+          val average = l.map(_._2).sum / l.length
+          val stdDeviation =
+            Math
+              .pow(
+                l.map(_._2)
+                  .map(pts => Math.pow(pts - average, 2))
+                  .sum / l.length,
+                0.5
               )
-              .covary[IO]
-          )
+          (hand.toString, average, stdDeviation, l.length)
         })
-        .flatten
-        .map(x => x)
-        .map(gameResult => gameResult.asJson.toString)
-        .debug()
-        .intersperse("\n")
-        .through(text.utf8.encode)
-        .through(
-          Files[IO]
-            .writeAll(
-              Path(
-                s"datasets/computedOptGames/$start.json"
-              )
-            )
-        )
+        .toList
+        .sortBy(_._2)
+        .map((hand, avg, std, n) =>
+          s"[$hand] $avg (average) $std (std) ($n samples)"
+        )*/
 
-      _ <- computeStream.compile.drain
+      /*res = dataL
+        .flatMap((hand, pts) => hand.cards.map(card => (card, pts)))
+        .groupBy(_._1.toString)
+        .toList
+        .sortBy((_, l) => l.map(_._2).sum / l.length)
+        .map((key, l) => {
+          val avgPts = l.map(_._2).sum / l.length
+          s"$key, $avgPts (avg) (${l.length} samples, ${(BigDecimal(l.length) / BigDecimal(dataL.length) * 100)
+              .setScale(2, RoundingMode.HALF_DOWN)}%)"
+
+        })
+
+      _ <- IO.println(res.mkString("\n"))
+       */
+
+      x = HandNeutral.fromNotation("At+,Kt-").map(elt => elt)
+
+      _ <- IO.println(x.map(_.toString).mkString(","))
 
       end <- IO(System.currentTimeMillis())
       _ <- IO.println(s"[computed in] ${end - start}ms")

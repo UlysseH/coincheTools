@@ -4,7 +4,7 @@ case class Card(suit: Suit, height: Height) {
 
   import Card._
 
-  def getNotation: String = s"${height.getLiteral}${suit.getLiteral}"
+  override def toString: String = s"${height.getLiteral}${suit.getLiteral}"
 
   def generateAboveTrumpCards: List[Card] = Height.values.toList
     .filter(_.getTrumpRank.>(height.getTrumpRank))

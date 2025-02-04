@@ -208,10 +208,10 @@ case class Game(
         precision,
         ForOptimizeAnalysis(
           (
-            handMap.cards1.map(_.getNotation),
-            handMap.cards2.map(_.getNotation),
-            handMap.cards3.map(_.getNotation),
-            handMap.cards4.map(_.getNotation)
+            handMap.cards1.map(_.toString),
+            handMap.cards2.map(_.toString),
+            handMap.cards3.map(_.toString),
+            handMap.cards4.map(_.toString)
           ),
           Nil,
           Nil
@@ -258,12 +258,12 @@ case class Game(
 
       val dataInc =
         data.copy(
-          playedCards = data.playedCards.appended(bestCardChoice.getNotation),
+          playedCards = data.playedCards.appended(bestCardChoice.toString),
           vectors = data.vectors ++ points
             .map((card, pts) =>
               (
                 step,
-                card.getNotation,
+                card.toString,
                 pts
                 /*.groupBy(x => x)
                 .toList

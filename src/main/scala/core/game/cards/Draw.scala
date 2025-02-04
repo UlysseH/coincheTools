@@ -3,22 +3,22 @@ package core.game.cards
 import core.game.roundTree.Tricks
 
 case class Draw(h1: Hand, h2: Hand, h3: Hand, h4: Hand) {
-  def getNotation: (List[String], List[String], List[String], List[String]) =
-    (h1.getNotation, h2.getNotation, h3.getNotation, h4.getNotation)
-  def getNotationTrumpOrder
+  def toStringList: (String, String, String, String) =
+    (h1.toString, h2.toString, h3.toString, h4.toString)
+  def toStringTrumpOrder
       : (List[String], List[String], List[String], List[String]) = (
-    h1.getNotationTrumpOrder,
-    h2.getNotationTrumpOrder,
-    h3.getNotationTrumpOrder,
-    h4.getNotationTrumpOrder
+    h1.toStringTrumpOrder,
+    h2.toStringTrumpOrder,
+    h3.toStringTrumpOrder,
+    h4.toStringTrumpOrder
   )
-  def getNotationBaseOrder
+  def toStringBaseOrder
       : (List[String], List[String], List[String], List[String]) =
     (
-      h1.getNotationBaseOrder,
-      h2.getNotationBaseOrder,
-      h3.getNotationBaseOrder,
-      h4.getNotationBaseOrder
+      h1.toStringBaseOrder,
+      h2.toStringBaseOrder,
+      h3.toStringBaseOrder,
+      h4.toStringBaseOrder
     )
 
   def generateAllTurnsWithPoints(

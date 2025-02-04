@@ -24,7 +24,7 @@ object GameOptimizeEndpoint extends Http4sDsl[IO] {
     HttpRoutes.of[IO] {
       case GET -> Root / "hello" => Ok("hello")
       //      case GET -> Root / "range" =>
-      //        Ok(ranges.map(r => r.name -> r.hands.map(_.getNotation)).toMap)
+      //        Ok(ranges.map(r => r.name -> r.hands.map(_.toString)).toMap)
 
       case req @ GET -> Root / "generateHandFromPlayer" =>
         for {

@@ -146,12 +146,12 @@ case class GameV2(
 
       /*println(
         gameState.playedCardsWithPlayers
-          .map((card, player) => s"${card.getNotation}($player)")
+          .map((card, player) => s"${card.toString}($player)")
           .mkString(",")
       )
       println(
         resultsOfSimulationsForEachPlayableCard
-          .map(elt => (elt._1.getNotation, elt._4))
+          .map(elt => (elt._1.toString, elt._4))
           .sortBy(_._2)
           .reverse
       )
@@ -249,7 +249,7 @@ object GameV2 {
         Hand(hMap.cards4)
           .toStringTrumpOrdered(gameState.trumpSuit)
           .mkString(","),
-        gameState.playedCardsWithPlayers.map(_._1.getNotation).mkString(","),
+        gameState.playedCardsWithPlayers.map(_._1.toString).mkString(","),
         gameState.trumpSuit.toString,
         pointsA,
         pointsB,
@@ -318,7 +318,7 @@ object GameV2 {
       .sortBy(_._2)
       .reverse
 
-    println(handMap.getNotationOrderedByTrumpSuit(scoresOrderedDesc.head._3))
+    println(handMap.toStringOrderedByTrumpSuit(scoresOrderedDesc.head._3))
 
     println(scoresOrderedDesc.head._1.map(_.print).mkString("\n"))
 

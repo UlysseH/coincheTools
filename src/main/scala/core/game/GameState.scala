@@ -71,7 +71,7 @@ case class GameState(
   def isPlayable(card: Card): Option[(Card, List[Card], Boolean)] = {
     if (askedSuit == Suit.None) Some((card, Nil, true))
     else
-      // println(s"master ${masterPlayer} with ${masterCard.get.getNotation}")
+      // println(s"master ${masterPlayer} with ${masterCard.get.toString}")
       (
         card,
         isTrumpRound,

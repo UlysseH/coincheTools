@@ -1,19 +1,19 @@
 package core.game.cards
 
 case class Hand(cards: List[Card]) {
+  override def toString: String = cards.map(_.toString).mkString(",")
   def remove(card: Card): Hand = Hand(cards.filterNot(_.==(card)))
-  def getNotation: List[String] = cards.map(_.getNotation)
-  def getNotationBaseOrder: List[String] =
+  def toStringBaseOrder: List[String] =
     cards
       .groupBy(_.suit)
       .toList
-      .flatMap(_._2.sortBy(_.height.getBaseRank).map(_.getNotation).reverse)
+      .flatMap(_._2.sortBy(_.height.getBaseRank).map(_.toString).reverse)
 
-  def getNotationTrumpOrder: List[String] =
+  def toStringTrumpOrder: List[String] =
     cards
       .groupBy(_.suit)
       .toList
-      .flatMap(_._2.sortBy(_.height.getTrumpRank).map(_.getNotation).reverse)
+      .flatMap(_._2.sortBy(_.height.getTrumpRank).map(_.toString).reverse)
 
   def toStringTrumpOrdered(trumpSuit: Suit): List[String] = cards
     .sortBy(card =>
@@ -21,9 +21,9 @@ case class Hand(cards: List[Card]) {
       else card.height.getBaseRank
     )
     .reverse
-    .map(_.getNotation)
+    .map(_.toString)
 
-  //def toNeutralHand
+  // def toNeutralHand
 
   // Plusieures valeurs possibles bien entendu
   def isMisery: Boolean = (cards.map(_.height.getBaseRank).sum < 11)

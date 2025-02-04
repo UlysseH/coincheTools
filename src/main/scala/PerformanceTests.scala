@@ -24,16 +24,16 @@ object PerformanceTests extends IOApp {
       )
 
       _ <- IO.println(
-        testSampleSorted.map(_.map(_.getNotation).mkString(",")).mkString("\n")
+        testSampleSorted.map(_.map(_.toString).mkString(",")).mkString("\n")
       )
 
       handS = "Ts,Ad,Ah,Td,Jd,Jh,9h,8h"
       hand = Hand(handS.split(",").map(Card.fromLitteral).toList)
       handNeutral = HandNeutral.fromHand(hand, Hearts)
 
-      _ <- IO.println(handNeutral.cards.map(_.getNotation).mkString(","))*/
+      _ <- IO.println(handNeutral.cards.map(_.toString).mkString(","))*/
 
-      stream = DatasetReaders.readComputedOptGames // .take(1000)
+      stream = DatasetReaders.readComputedOptGames.flatten // .take(1000)
 
       _ <- stream.compile.drain
 

@@ -70,8 +70,8 @@ object Main_01 extends IOApp {
         true
       )
 
-      playableCardsStepOne = stepOne.generatePlayableCards.map(_._1.getNotation)
-      playableCardsStepTwo = stepTwo.generatePlayableCards.map(_._1.getNotation)
+      playableCardsStepOne = stepOne.generatePlayableCards.map(_._1.toString)
+      playableCardsStepTwo = stepTwo.generatePlayableCards.map(_._1.toString)
 
       _ <- IO.println(playableCardsStepOne.mkString(","))
       _ <- IO.println(playableCardsStepTwo.mkString(","))

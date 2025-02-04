@@ -11,7 +11,7 @@ case class Tricks(
     firstPlayer: Player
 ) {
   def print =
-    s"[wonBy] $wonBy | [points] $points | ${cardsAsList.map(_.getNotation).mkString(",")} | [firstPlayer] $firstPlayer"
+    s"[wonBy] $wonBy | [points] $points | ${cardsAsList.map(_.toString).mkString(",")} | [firstPlayer] $firstPlayer"
 
   def isTrumpTrick = cards.trumpSuit == cards.first._1.suit
 
